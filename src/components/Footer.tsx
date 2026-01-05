@@ -18,9 +18,14 @@ const Footer = () => {
             </h4>
             <div className="space-y-3">
               <div className="flex items-center justify-center md:justify-end flex-row-reverse">
-                <span className="text-gray-300 font-persian ml-3">
+                <a
+                  href="https://maps.app.goo.gl/SuFQPrsjuxGb5SuD6"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 font-persian ml-3 hover:text-primary transition-colors"
+                >
                   اردبیل، پارک شهریار
-                </span>
+                </a>
                 <MapPin className="w-5 h-5 text-primary" />
               </div>
               <div className="flex items-center justify-center md:justify-end flex-row-reverse">
