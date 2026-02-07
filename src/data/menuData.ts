@@ -26,7 +26,7 @@ export const burgers: MenuItem[] = [
     name: "کلاسیک برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۳۹۰",
+    price: "۴۱۰",
     image: classicBurger,
     imageAlt: "برگر کلاسیک با مخلفات تازه",
   },
@@ -35,7 +35,7 @@ export const burgers: MenuItem[] = [
     name: "کارامل برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با پیاز کاراملی، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۲۰",
+    price: "۴۴۰",
     image: classicBurger,
     imageAlt: "برگر کارامل با مخلفات تازه",
   },
@@ -44,7 +44,7 @@ export const burgers: MenuItem[] = [
     name: "اسپایسی برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با هالوپینو تند، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۲۰",
+    price: "۴۴۰",
     image: classicBurger,
     imageAlt: "برگر کارامل با مخلفات تازه",
   },
@@ -53,7 +53,7 @@ export const burgers: MenuItem[] = [
     name: "چیز برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با یک ورق پنیر چدار ذوب شده، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۴۰",
+    price: "۴۵۰",
     image: classicBurger,
     imageAlt: "چیزبرگر با پنیر ذوب شده",
   },
@@ -62,7 +62,7 @@ export const burgers: MenuItem[] = [
     name: "ماشروم برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با سس قارچ، کاهو تازه، گوجه،خیارشور و پیازچه روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۵۰",
+    price: "۴۶۰",
     image: classicBurger,
     imageAlt: "ماشروم برگر با قارچ تازه",
   },
@@ -71,7 +71,7 @@ export const burgers: MenuItem[] = [
     name: "دودی برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با دو ورق پنیر دودی، کاهو تازه،پاپریکای کبابی، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۵۰",
+    price: "۴۶۰",
     image: classicBurger,
     imageAlt: "برگر دودی با طعم باربیکیو",
   },
@@ -80,7 +80,7 @@ export const burgers: MenuItem[] = [
     name: "محلی برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با پنیر لیقوان، ریحان تازه، گوجه و سس سیر روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۴۰",
+    price: "۴۵۰",
     image: classicBurger,
     imageAlt: "برگر محلی با مواد محلی",
   },
@@ -89,7 +89,7 @@ export const burgers: MenuItem[] = [
     name: "بیکن برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با بیکن دودی، کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی",
-    price: "۴۴۰",
+    price: "۴۶۰",
     image: classicBurger,
     imageAlt: "برگر محلی با مواد محلی",
   },
@@ -107,7 +107,7 @@ export const burgers: MenuItem[] = [
     name: "ساندویچ مرغ",
     description:
       "۱۲۰ گرم فیله مرغ با خیار، گوجه، ریحان تازه، و سس انبه روی نان چاپاتا کره ای به همراه سیب زمینی.",
-    price: "۳۰۰",
+    price: "۳۲۰",
     image: morgSandwich,
     imageAlt: "برگر محلی با مواد محلی",
   },
@@ -118,7 +118,7 @@ export const fries: MenuItem[] = [
     id: "classic-fries",
     name: "سیب زمینی",
     description: "سیب‌زمینی طلایی و ترد با ادویه برگرد.",
-    price: "۱۹۰",
+    price: "۲۱۰",
     image: friesImage,
     imageAlt: "سیب‌زمینی طلایی ترد",
   },
