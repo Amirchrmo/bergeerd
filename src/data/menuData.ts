@@ -89,7 +89,7 @@ export const burgers: MenuItem[] = [
     name: "بیکن برگرد",
     description:
       "۱۳۰ گرم گوشت آبدار با بیکن دودی، کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی",
-    price: "۴۶۰",
+    price: "۴۷۰",
     image: classicBurger,
     imageAlt: "برگر محلی با مواد محلی",
   },
@@ -143,6 +143,14 @@ export const toppings: MenuItem[] = [
   {
     id: "classic-topping",
     name: "گوشت ۶۵ گرمی اضافه",
+    description: "",
+    price: "۹۰",
+    image: topImage,
+    imageAlt: "تاپینگ اضافه",
+  },
+  {
+    id: "classic-topping",
+    name: "بیکن",
     description: "",
     price: "۸۰",
     image: topImage,
