@@ -1,13 +1,20 @@
 // Import all food images
-import classicBurger from "@/assets/classic-burger.jpg";
-import baconBurger from "@/assets/bacon-burger.jpg";
-import bbqBurger from "@/assets/bbq-burger.jpg";
-import doubleBurger from "@/assets/double-burger.jpg";
-import friesImage from "@/assets/fries.jpg";
+import classicBurger from "@/assets/real-classic.jpg";
+import karamel from "@/assets/real-karamel.jpg";
+import spoicy from "@/assets/real-spoicy.jpg";
+import chiz from "@/assets/real-chiz.jpg";
+import mash from "@/assets/real-mashroom.jpg";
+import doody from "@/assets/real-doody.jpg";
+import mahali from "@/assets/real-mahali.jpg";
+import beyken from "@/assets/real-beyken.jpg";
+import chiken from "@/assets/real-chiken.jpg";
+
+
+
+import friesImage from "@/assets/sibzamini.jpg";
 import topImage from "@/assets/top.png";
+// import lemon from "@/assets/lemon.png";
 import cola from "@/assets/cola.jpg";
-import morgSandwich from "@/assets/morg-sandwich.png";
-import lemon from "@/assets/lemon.png";
 import fanta from "@/assets/fanta.png";
 import beer from "@/assets/bear.png";
 
@@ -25,8 +32,8 @@ export const burgers: MenuItem[] = [
     id: "classic-burger",
     name: "کلاسیک برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۱۰",
+      "۱۳۰ گرم گوشت گوساله آبدار با کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
+    price: "۴۷۰",
     image: classicBurger,
     imageAlt: "برگر کلاسیک با مخلفات تازه",
   },
@@ -34,70 +41,70 @@ export const burgers: MenuItem[] = [
     id: "caramel-burger",
     name: "کارامل برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با پیاز کاراملی، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۴۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با پیاز کاراملی، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
+    price: "۵۰۰",
+    image: karamel,
     imageAlt: "برگر کارامل با مخلفات تازه",
   },
   {
     id: "spoysi-burger",
     name: "اسپایسی برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با هالوپینو تند، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۴۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با هالوپینو تند، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
+    price: "۵۰۰",
+    image: spoicy,
     imageAlt: "برگر کارامل با مخلفات تازه",
   },
   {
     id: "cheese-burger",
     name: "چیز برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با یک ورق پنیر چدار ذوب شده، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۵۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با دو ورق پنیر چدار ذوب شده، کاهو تازه، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
+    price: "۵۱۰",
+    image: chiz,
     imageAlt: "چیزبرگر با پنیر ذوب شده",
   },
   {
     id: "mushroom-burger",
     name: "ماشروم برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با سس قارچ، کاهو تازه، گوجه،خیارشور و پیازچه روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۶۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با سس قارچ، کاهو تازه، گوجه،خیارشور و پیازچه روی نان کره ای به همراه سیب زمینی.",
+    price: "۵۲۰",
+    image: mash,
     imageAlt: "ماشروم برگر با قارچ تازه",
   },
   {
     id: "smoky-burger",
     name: "دودی برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با دو ورق پنیر دودی، کاهو تازه،پاپریکای کبابی، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۶۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با دو ورق پنیر دودی، کاهو تازه،پاپریکای کبابی، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی.",
+    price: "۵۲۰",
+    image: doody,
     imageAlt: "برگر دودی با طعم باربیکیو",
   },
   {
     id: "local-burger",
     name: "محلی برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با پنیر لیقوان، ریحان تازه، گوجه و سس سیر روی نان کره ای به همراه سیب زمینی.",
-    price: "۴۵۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با پنیر لیقوان، ریحان تازه، گوجه و سس سیر روی نان کره ای به همراه سیب زمینی.",
+    price: "۵۱۰",
+    image: mahali,
     imageAlt: "برگر محلی با مواد محلی",
   },
   {
     id: "local-burger",
     name: "بیکن برگرد",
     description:
-      "۱۳۰ گرم گوشت آبدار با بیکن دودی، کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی",
-    price: "۴۷۰",
-    image: classicBurger,
+      "۱۳۰ گرم گوشت گوساله آبدار با بیکن دودی، کاهو تازه،پیاز، گوجه، خیارشور و سس برگرد روی نان کره ای به همراه سیب زمینی",
+    price: "۵۳۰",
+    image: beyken,
     imageAlt: "برگر محلی با مواد محلی",
   },
   // {
   //   id: "omami-burger",
   //   name: "اومامی برگرد",
   //   description:
-  //     "۱۵۰ گرم گوشت آبدار با آووکادو،زیتون، گوجه خشک و پنیر خامه ای روی نان کره ای به همراه سیب زمینی",
+  //     "۱۵۰ گرم گوشت گوساله آبدار با آووکادو،زیتون، گوجه خشک و پنیر خامه ای روی نان کره ای به همراه سیب زمینی",
   //   price: "۳۹۵",
   //   image: classicBurger,
   //   imageAlt: "اومامی برگرد",
@@ -106,9 +113,9 @@ export const burgers: MenuItem[] = [
     id: "chickeq-burger",
     name: "ساندویچ مرغ",
     description:
-      "۱۲۰ گرم فیله مرغ با خیار، گوجه، ریحان تازه، و سس انبه روی نان چاپاتا کره ای به همراه سیب زمینی.",
-    price: "۳۲۰",
-    image: morgSandwich,
+      "۱۲۰ گرم فیله مرغ با خیار، گوجه، ریحان تازه، و سس انبه و چیلی روی نان چاپاتا کره ای به همراه سیب زمینی.",
+    price: "۳۶۰",
+    image: chiken,
     imageAlt: "برگر محلی با مواد محلی",
   },
 ];
@@ -118,7 +125,7 @@ export const fries: MenuItem[] = [
     id: "classic-fries",
     name: "سیب زمینی",
     description: "سیب‌زمینی طلایی و ترد با ادویه برگرد.",
-    price: "۲۱۰",
+    price: "۲۲۰",
     image: friesImage,
     imageAlt: "سیب‌زمینی طلایی ترد",
   },
@@ -144,7 +151,7 @@ export const toppings: MenuItem[] = [
     id: "classic-topping",
     name: "گوشت ۶۵ گرمی اضافه",
     description: "",
-    price: "۹۰",
+    price: "۱۰۰",
     image: topImage,
     imageAlt: "تاپینگ اضافه",
   },
@@ -166,7 +173,7 @@ export const toppings: MenuItem[] = [
   },
   {
     id: "classic-topping",
-    name: "قارچ،",
+    name: "قارچ",
     description: "",
     price: "۴۰",
     image: topImage,
@@ -204,7 +211,7 @@ export const drinks: MenuItem[] = [
     id: "classic-cola",
     name: "کولا",
     description: "کولا با یخ.",
-    price: "۵۵",
+    price: "۶۵",
     image: cola,
     imageAlt: "کولا خنک‌کننده با یخ",
   },
@@ -212,7 +219,7 @@ export const drinks: MenuItem[] = [
     id: "zero-cola",
     name: "زیرو",
     description: "کولا زیرو بدون قند با یخ.",
-    price: "۵۵",
+    price: "۶۵",
     image: cola,
     imageAlt: "کولا زیرو بدون قند",
   },
@@ -228,7 +235,7 @@ export const drinks: MenuItem[] = [
     id: "fanta",
     name: "فانتا",
     description: "نوشابه پرتغالی به همراه یخ",
-    price: "۵۵",
+    price: "۶۵",
     image: fanta,
     imageAlt: "نوشابه پرتغالی تازه و خنک",
   },
@@ -236,7 +243,7 @@ export const drinks: MenuItem[] = [
     id: "argo-malt",
     name: "ماء الشعیر آرگو",
     description: "نوشیدنی مالت کلاسیک آرگو به همراه یخ",
-    price: "۵۵",
+    price: "۶۵",
     image: beer,
     imageAlt: "نوشیدنی مالت کلاسیک آرگو",
   },
