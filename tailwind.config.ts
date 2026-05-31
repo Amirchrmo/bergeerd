@@ -67,8 +67,9 @@ export default {
         "warm-gray": "hsl(var(--warm-gray))",
       },
       fontFamily: {
-        'diner': ['Bebas Neue', 'cursive', 'system-ui'],
-        'persian': ['Vazirmatn', 'system-ui', 'sans-serif'],
+        sans: ['Rezvan', 'sans-serif'],
+        diner: ['Rezvan', 'sans-serif'],
+        persian: ['Rezvan', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",

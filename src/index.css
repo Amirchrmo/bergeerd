@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Rezvan";
+  src: url("./assets/Rezvan.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Burger Shop Design System - Modern American Diner Aesthetic
 All colors MUST be HSL.
 */
@@ -130,22 +138,22 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html,
   body {
     @apply bg-background text-foreground;
-    font-family: "Vazirmatn", "Inter", -apple-system, BlinkMacSystemFont,
-      "Segoe UI", Roboto, sans-serif;
+    font-family: "Rezvan", sans-serif;
     direction: rtl;
   }
 
   /* Custom burger shop typography */
   .font-diner {
-    font-family: "Bebas Neue", cursive, system-ui;
+    font-family: "Rezvan", sans-serif;
     font-weight: 400;
     letter-spacing: 0.05em;
   }
 
   .font-persian {
-    font-family: "Vazirmatn", system-ui, sans-serif;
+    font-family: "Rezvan", sans-serif;
   }
 
   /* Custom animations */

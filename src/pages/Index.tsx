@@ -11,8 +11,8 @@ const Index = () => {
       <main className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
           <MenuSection title="برگرها" items={burgers} />
-          <MenuSection title="سیب‌زمینی و پیش‌غذا" items={fries} />
-          <MenuSection title="تاپینگ ها" items={toppings} />
+          <MenuSection title="سیب‌زمینی" items={fries} />
+          <MenuSection title="میتونی اضافه کنی..." items={toppings} />
           <MenuSection title="نوشیدنی‌ها" items={drinks} />
         </div>
       </main>
