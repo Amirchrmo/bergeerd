@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import LOGOSmall from "@/assets/LOGO-header.png";
-import { Gamepad2, Home } from "lucide-react";
+import { Gamepad2 } from "lucide-react";
+import { scrollToId, scrollToTop } from "@/lib/smoothScroll";
 
 export interface CategoryNavEntry {
   /** Stable id used as the scroll target (`#id`). */
@@ -14,26 +16,27 @@ interface CategoryNavProps {
 }
 
 /**
- * Sticky top navigation with scroll-spy.
+ * Floating category bar with scroll-spy.
  *
- * - Stays pinned at the top once the user scrolls past the hero.
- * - Shows a compact logo + horizontally scrollable category pills.
- * - Highlights the section currently in view (scroll-spy via IntersectionObserver).
- * - Provides quick links to the top and the entertainment game.
+ * - Slides in once the visitor scrolls past the hero.
+ * - The active pill's background glides between categories.
+ * - On small screens the pills scroll horizontally and the active one is
+ *   kept in view.
  */
 const CategoryNav = ({ categories }: CategoryNavProps) => {
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState<string | null>(null);
+  const pillsRef = useRef<HTMLElement>(null);
 
   // Show the bar after scrolling a little past the hero.
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > window.innerHeight * 0.6);
+    const onScroll = () => setVisible(window.scrollY > window.innerHeight * 0.8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Scroll-spy: track which menu section is centered in the viewport.
+  // Scroll-spy: track which menu section is in the middle of the viewport.
   useEffect(() => {
     if (categories.length === 0) return;
     const targets = categories
@@ -43,7 +46,6 @@ const CategoryNav = ({ categories }: CategoryNavProps) => {
 
     const io = new IntersectionObserver(
       (entries) => {
-        // Pick the entry closest to the top that's intersecting.
         const visibleEntries = entries.filter((e) => e.isIntersecting);
         if (visibleEntries.length > 0) {
           visibleEntries.sort(
@@ -58,83 +60,87 @@ const CategoryNav = ({ categories }: CategoryNavProps) => {
     return () => io.disconnect();
   }, [categories]);
 
-  const go = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const scrollTop = () =>
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  // Keep the active pill visible inside the horizontal scroller.
+  useEffect(() => {
+    if (!active || !pillsRef.current) return;
+    const nav = pillsRef.current;
+    const pill = nav.querySelector<HTMLElement>(
+      `[data-pill="${CSS.escape(active)}"]`,
+    );
+    if (!pill) return;
+    // Scroll only the pill row, never the page.
+    // (Relative scrollBy behaves the same in RTL and LTR.)
+    const p = pill.getBoundingClientRect();
+    const n = nav.getBoundingClientRect();
+    nav.scrollBy({
+      left: p.left + p.width / 2 - (n.left + n.width / 2),
+      behavior: "smooth",
+    });
+  }, [active]);
 
   return (
-    <div
-      className={`fixed inset-x-0 top-0 z-50 transition-transform duration-500 ${
-        visible ? "translate-y-0" : "-translate-y-full"
-      }`}
-    >
-      <div className="glass-strong border-b border-white/10">
-        <div className="container mx-auto flex items-center gap-3 px-4 py-2.5">
-          {/* Compact logo / home */}
-          <button
-            onClick={scrollTop}
-            className="flex shrink-0 items-center gap-2"
-            aria-label="بازگشت به بالا"
-          >
-            <img
-              src={LOGOSmall}
-              alt="برگرد"
-              className="h-9 w-9 rounded-full object-cover ring-1 ring-primary/40"
-            />
-            <span className="hidden font-persian text-lg font-bold text-white sm:block">
-              برگرد
-            </span>
-          </button>
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ y: -90, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -90, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 28 }}
+          className="fixed inset-x-0 top-3 z-50 flex justify-center px-3"
+        >
+          <div className="flex w-full max-w-3xl items-center gap-2 rounded-full border border-white/10 bg-[hsl(20_14%_8%/0.78)] p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+            <button
+              onClick={scrollToTop}
+              className="shrink-0 rounded-full transition-transform hover:scale-105"
+              aria-label="بازگشت به بالا"
+            >
+              <img
+                src={LOGOSmall}
+                alt="برگرد"
+                className="h-9 w-9 rounded-full bg-brand object-contain p-1"
+              />
+            </button>
 
-          {/* Pills (scrollable on mobile) */}
-          <nav className="flex flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
-            {categories.map((c) => {
-              const isActive = active === c.id;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => go(c.id)}
-                  className={`relative shrink-0 rounded-full px-4 py-1.5 font-persian text-sm transition-colors duration-300 ${
-                    isActive
-                      ? "text-white"
-                      : "text-white/60 hover:text-white"
-                  }`}
-                >
-                  {isActive && (
-                    <span
-                      className="absolute inset-0 -z-10 rounded-full"
-                      style={{ background: "var(--gradient-fire)" }}
-                    />
-                  )}
-                  {c.label}
-                </button>
-              );
-            })}
-          </nav>
+            <nav
+              ref={pillsRef}
+              className="no-scrollbar flex flex-1 items-center gap-1 overflow-x-auto"
+            >
+              {categories.map((c) => {
+                const isActive = active === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    data-pill={c.id}
+                    onClick={() => scrollToId(c.id)}
+                    className={`relative shrink-0 rounded-full px-4 py-2 font-body text-sm transition-colors duration-300 ${
+                      isActive ? "text-white" : "text-white/55 hover:text-white"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-pill"
+                        className="absolute inset-0 rounded-full bg-brand"
+                        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative">{c.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-          {/* Quick action: game */}
-          <button
-            onClick={() => go("entertainment")}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-persian text-xs text-white/80 transition-colors hover:bg-white/10"
-          >
-            <Gamepad2 className="h-4 w-4 text-gold" />
-            <span className="hidden sm:block">بازی</span>
-          </button>
-
-          <button
-            onClick={scrollTop}
-            className="hidden shrink-0 rounded-full border border-white/15 bg-white/5 p-2 text-white/70 transition-colors hover:bg-white/10 sm:block"
-            aria-label="بالا"
-          >
-            <Home className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+            <button
+              onClick={() => scrollToId("entertainment")}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-3 py-2 font-body text-xs text-white/80 transition-colors hover:bg-white/10"
+              aria-label="بازی"
+            >
+              <Gamepad2 className="h-4 w-4 text-gold" />
+              <span className="hidden sm:block">بازی</span>
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

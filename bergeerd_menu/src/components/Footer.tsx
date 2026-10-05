@@ -1,14 +1,10 @@
 import { Instagram, Phone, MapPin, Heart, ArrowUp, Gamepad2 } from "lucide-react";
 import LOGOFooter from "@/assets/LOGO-header.png";
+import { scrollToId, scrollToTop } from "@/lib/smoothScroll";
 
 const Footer = () => {
-  const scrollTop = () =>
-    window.scrollTo({ top: 0, behavior: "smooth" });
-
-  const goGame = () =>
-    document
-      .getElementById("entertainment")
-      ?.scrollIntoView({ behavior: "smooth" });
+  const scrollTop = scrollToTop;
+  const goGame = () => scrollToId("entertainment");
 
   return (
     <footer

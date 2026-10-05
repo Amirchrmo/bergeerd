@@ -1,95 +1,88 @@
-import { useState, useEffect } from "react";
-import LOGOLoader from "@/assets/LOGO-header.png";
+import { useEffect, useState } from "react";
+import { animate, motion, useMotionValue } from "motion/react";
+import BurgerStack from "@/components/burger/BurgerStack";
+import { DEFAULT_RECIPE } from "@/lib/burgerLayers";
+
+interface LoaderProps {
+  /** Called once the curtain has started lifting. */
+  onDone: () => void;
+}
 
 /**
- * Full-screen branded intro loader.
- * Shows for a short fixed duration, then fades out smoothly. The logo is
- * wrapped in an animated glowing ring and floating embers.
+ * Branded intro: the burger's layers fall together into a stack, then the
+ * red curtain lifts to reveal the hero. Kept to roughly the same length as
+ * the previous loader.
  */
-const Loader = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [fadingOut, setFadingOut] = useState(false);
+const Loader = ({ onDone }: LoaderProps) => {
+  const [lifting, setLifting] = useState(false);
+  const [gone, setGone] = useState(false);
+  const progress = useMotionValue(1);
 
   useEffect(() => {
-    const fadeTimer = setTimeout(() => setFadingOut(true), 1300);
-    const hideTimer = setTimeout(() => setIsLoading(false), 1750);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const assemble = animate(progress, 0, {
+      duration: reduced ? 0 : 0.95,
+      ease: [0.65, 0, 0.35, 1],
+      delay: 0.15,
+    });
+    const lift = setTimeout(
+      () => {
+        setLifting(true);
+        onDone();
+      },
+      reduced ? 200 : 1350,
+    );
+    const hide = setTimeout(() => setGone(true), reduced ? 300 : 2200);
     return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(hideTimer);
+      assemble.stop();
+      clearTimeout(lift);
+      clearTimeout(hide);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!isLoading) return null;
+  if (gone) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden"
+    <motion.div
+      role="status"
+      aria-label="در حال بارگذاری"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-brand"
+      initial={{ y: 0 }}
+      animate={{ y: lifting ? "-100%" : 0 }}
+      transition={{ duration: 0.85, ease: [0.76, 0, 0.24, 1] }}
       style={{
-        background:
-          "radial-gradient(circle at 50% 40%, hsl(0 84% 46%), hsl(0 80% 32%) 72%)",
-        opacity: fadingOut ? 0 : 1,
-        transition: "opacity 0.45s ease",
+        borderBottomLeftRadius: lifting ? "50% 12vh" : 0,
+        borderBottomRightRadius: lifting ? "50% 12vh" : 0,
+        transition: "border-radius 0.6s ease",
       }}
     >
-      {/* Floating ember particles */}
-      {Array.from({ length: 12 }).map((_, i) => (
-        <span
-          key={i}
-          className="absolute block rounded-full"
-          style={{
-            width: `${4 + (i % 3) * 3}px`,
-            height: `${4 + (i % 3) * 3}px`,
-            left: `${(i * 37) % 100}%`,
-            bottom: "-20px",
-            background:
-              i % 2 === 0
-                ? "hsl(38 95% 60% / 0.7)"
-                : "hsl(8 82% 56% / 0.7)",
-            filter: "blur(0.5px)",
-            animation: `steam ${2.4 + (i % 4) * 0.6}s ease-in ${
-              (i % 5) * 0.4
-            }s infinite`,
-          }}
+      <motion.div
+        animate={{ opacity: lifting ? 0 : 1, y: lifting ? -40 : 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col items-center"
+      >
+        <BurgerStack
+          recipe={DEFAULT_RECIPE}
+          progress={progress}
+          viewHeight={300}
+          maxGap={30}
+          labels="none"
+          className="h-44 drop-shadow-[0_20px_30px_rgba(60,0,0,0.5)]"
         />
-      ))}
-
-      <div className="relative flex flex-col items-center">
-        {/* Logo + glowing rings */}
-        <div className="relative h-40 w-40">
-          <span className="absolute inset-0 animate-spin-slow rounded-full border-2 border-dashed border-primary/30" />
-          <span className="absolute inset-2 rounded-full bg-primary/10 blur-md" />
-          <span className="absolute inset-0 animate-pulse-glow rounded-full" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <img
-              src={LOGOLoader}
-              alt="Bergeerd"
-              className="h-24 w-24 animate-float-soft object-contain drop-shadow-[0_0_18px_hsl(4_82%_54%_/_0.55)]"
-            />
-          </div>
-        </div>
-
-        {/* Tagline */}
-        <h2 className="mt-8 font-persian text-2xl font-bold text-white">
-          <span className="text-gradient-gold">برگرد</span>
-          <span className="mx-2 text-white/60">،</span>
-          یه گرد خوشمزه
-        </h2>
-
-        {/* Loading bar */}
-        <div className="mt-5 h-1 w-44 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full"
-            style={{
-              background: "var(--gradient-fire)",
-              animation: "marquee 1.3s ease-in-out infinite",
-            }}
+        <p className="mt-6 font-display text-2xl text-white">
+          برگرد، یه گرد خوشمزه
+        </p>
+        <div className="mt-4 h-0.5 w-40 overflow-hidden rounded-full bg-white/20">
+          <motion.div
+            className="h-full origin-right bg-white"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 1.2, ease: [0.65, 0, 0.35, 1] }}
           />
         </div>
-        <p className="mt-3 font-persian text-sm text-white/50">
-          یکم صبر کن...
-        </p>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

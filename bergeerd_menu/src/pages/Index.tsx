@@ -1,25 +1,34 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { motion } from "motion/react";
+import { Flame } from "lucide-react";
 import Hero from "@/components/Hero";
+import BurgerAnatomy from "@/components/BurgerAnatomy";
+import IngredientMarquee from "@/components/IngredientMarquee";
 import CategoryNav, { type CategoryNavEntry } from "@/components/CategoryNav";
-import MenuSection from "@/components/MenuSection";
+import MenuSection, { slugify } from "@/components/MenuSection";
 import GameSection from "@/components/GameSection";
 import LocationSection from "@/components/LocationSection";
 import Footer from "@/components/Footer";
+import { ActiveCardProvider } from "@/components/menu/ActiveCardContext";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { parseBurgerRecipe } from "@/lib/burgerLayers";
 import { useMenu } from "@/lib/menuApi";
-import { Flame } from "lucide-react";
+import { initSmoothScroll } from "@/lib/smoothScroll";
+
+const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
 /**
  * Main page.
  *
- * Loads the menu from the API (with the static fallback), wires up the
- * scroll-spy nav and scroll-reveal animations, and lays out the experience:
- * Hero → sticky category nav → menu sections → entertainment game →
- * location → footer.
+ * Loads the menu from the API (with the static fallback) and lays out the
+ * experience: Hero → burger anatomy (scroll showcase) → ingredient marquee →
+ * sticky category nav + menu sections → entertainment game → location →
+ * footer.
  */
-const Index = () => {
+const Index = ({ ready }: { ready: boolean }) => {
   const { data: sections = [] } = useMenu();
   useScrollReveal();
+  useEffect(() => initSmoothScroll(), []);
 
   const visibleSections = useMemo(
     () =>
@@ -34,9 +43,7 @@ const Index = () => {
     [sections],
   );
 
-  // Build nav entries from the rendered sections. The id must match what
-  // MenuSection renders (it defaults to `section-<slugified-title>` when no
-  // explicit sectionId is provided).
+  // The id must match what MenuSection renders.
   const navCategories: CategoryNavEntry[] = useMemo(
     () =>
       visibleSections.map((s) => ({
@@ -46,53 +53,101 @@ const Index = () => {
     [visibleSections],
   );
 
+  // Showcase the burger with the most layers; collect ingredient names.
+  const { featured, ingredients } = useMemo(() => {
+    let best: { name: string; recipe: NonNullable<ReturnType<typeof parseBurgerRecipe>> } | null = null;
+    const words = new Set<string>();
+    for (const section of visibleSections) {
+      for (const item of section.items) {
+        const recipe = parseBurgerRecipe(item.description);
+        if (!recipe) continue;
+        recipe.layers.forEach((l) => l.label && words.add(l.label));
+        if (!best || recipe.layers.length > best.recipe.layers.length) {
+          best = { name: item.name, recipe };
+        }
+      }
+    }
+    return { featured: best, ingredients: [...words] };
+  }, [visibleSections]);
+
   return (
-    <div className="min-h-screen bg-background">
-      <Hero />
+    <ActiveCardProvider>
+      <div className="grain relative min-h-screen bg-background">
+        <Hero ready={ready} />
 
-      {/* Sticky category navigation appears after hero */}
-      <CategoryNav categories={navCategories} />
+        <CategoryNav categories={navCategories} />
 
-      {/* Menu */}
-      <main id="menu" className="container mx-auto scroll-mt-24 px-4 py-10">
-        <div className="mx-auto max-w-6xl">
-          <div className="reveal mb-12 text-center">
-            <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 font-persian text-xs text-primary-light">
-              <Flame className="h-3.5 w-3.5" />
-              منوی برگرد
-            </span>
-            <h2 className="font-persian text-4xl font-black text-foreground md:text-6xl">
-              چی <span className="text-gradient-red">می‌خوای</span>؟
-            </h2>
+        {featured && (
+          <BurgerAnatomy name={featured.name} recipe={featured.recipe} />
+        )}
+
+        <IngredientMarquee words={ingredients} />
+
+        {/* Menu */}
+        <main id="menu" className="container mx-auto scroll-mt-24 px-4 pb-10 pt-20 md:pt-28">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-4 flex flex-col items-center text-center">
+              <motion.span
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-body text-xs text-burger-red-light"
+              >
+                <Flame className="h-3.5 w-3.5" />
+                منوی برگرد
+              </motion.span>
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className="overflow-hidden pb-2"
+              >
+                <motion.h2
+                  variants={{ hidden: { y: "105%" }, show: { y: "0%" } }}
+                  transition={{ duration: 1, ease: EASE_OUT_EXPO }}
+                  className="font-display text-5xl text-cream md:text-8xl"
+                >
+                  چی <span className="text-gradient-fire">می‌خوای</span>؟
+                </motion.h2>
+              </motion.div>
+              <motion.p
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="mt-3 max-w-md font-body text-sm leading-7 text-muted-foreground md:text-base"
+              >
+                <span className="hint-hover">
+                  ماوس رو روی هر برگر نگه دار تا لایه‌هاش از هم باز بشن.
+                </span>
+                <span className="hint-touch">
+                  روی عکس هر برگر بزن تا لایه‌هاش از هم باز بشن.
+                </span>
+              </motion.p>
+            </div>
+
+            {visibleSections.map((section, i) => (
+              <MenuSection
+                key={section.title}
+                title={section.title}
+                items={section.items}
+                index={i}
+              />
+            ))}
           </div>
+        </main>
 
-          {visibleSections.map((section, i) => (
-            <MenuSection
-              key={section.title}
-              title={section.title}
-              items={section.items}
-              index={i}
-            />
-          ))}
-        </div>
-      </main>
+        {/* Entertainment */}
+        <GameSection />
 
-      {/* Entertainment */}
-      <GameSection />
+        {/* Location */}
+        <LocationSection />
 
-      {/* Location */}
-      <LocationSection />
-
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </ActiveCardProvider>
   );
 };
-
-function slugify(s: string): string {
-  return s
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\u0600-\u06FF\w-]/g, "");
-}
 
 export default Index;

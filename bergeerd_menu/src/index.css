@@ -18,61 +18,61 @@
 
 @layer base {
   :root {
-    /* Base surfaces — warm cream/white so food looks appetizing */
-    --background: 36 33% 96%;
-    --foreground: 0 0% 14%;
+    /* Base surfaces — warm, near-black espresso so the food photos glow */
+    --background: 20 16% 5%;
+    --foreground: 36 33% 93%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 14%;
+    --card: 18 13% 9%;
+    --card-foreground: 36 33% 93%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 14%;
+    --popover: 18 13% 9%;
+    --popover-foreground: 36 33% 93%;
 
-    /* Bergeerd signature red (#d2080b) as the dominant brand color */
-    --primary: 0 92% 43%;
+    /* Bergeerd signature red (#d2080b) */
+    --primary: 359 93% 43%;
     --primary-foreground: 0 0% 100%;
 
-    /* Golden amber accent for prices & highlights */
-    --accent: 38 95% 50%;
+    /* Golden amber accent for highlights */
+    --accent: 38 95% 55%;
     --accent-foreground: 20 20% 8%;
 
-    /* Secondary surface */
-    --secondary: 0 60% 96%;
-    --secondary-foreground: 0 0% 14%;
+    --secondary: 18 10% 13%;
+    --secondary-foreground: 36 33% 93%;
 
-    /* Muted grays */
-    --muted: 0 10% 93%;
-    --muted-foreground: 0 0% 42%;
+    --muted: 18 8% 15%;
+    --muted-foreground: 30 10% 64%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 12% 87%;
-    --input: 0 12% 87%;
-    --ring: 0 92% 43%;
+    --border: 20 10% 18%;
+    --input: 20 10% 18%;
+    --ring: 38 95% 55%;
 
     /* Custom burger shop colors */
-    --burger-red: 0 92% 43%;
+    --burger-red: 359 93% 43%;
     --burger-red-dark: 0 86% 35%;
-    --burger-red-light: 4 90% 56%;
-    --gold: 38 95% 50%;
-    --gold-soft: 42 92% 60%;
+    --burger-red-light: 4 90% 60%;
+    --gold: 40 96% 58%;
+    --gold-soft: 42 92% 66%;
+    --cream: 36 45% 94%;
+    --ink: 20 25% 8%;
     --charcoal: 0 0% 12%;
     --warm-gray: 0 0% 38%;
     --ember: 16 90% 56%;
 
     /* Gradients */
-    --gradient-red: linear-gradient(135deg, hsl(4 90% 52%), hsl(0 84% 42%));
-    --gradient-gold: linear-gradient(135deg, hsl(40 95% 56%), hsl(28 88% 50%));
-    --gradient-fire: linear-gradient(135deg, hsl(0 92% 50%), hsl(22 90% 52%));
-    --gradient-surface: linear-gradient(160deg, hsl(0 0% 100%), hsl(36 33% 95%));
+    --gradient-red: linear-gradient(135deg, hsl(4 90% 56%), hsl(0 84% 44%));
+    --gradient-gold: linear-gradient(135deg, hsl(40 95% 60%), hsl(28 88% 52%));
+    --gradient-fire: linear-gradient(135deg, hsl(40 96% 60%), hsl(14 92% 54%) 55%, hsl(359 93% 50%));
+    --gradient-surface: linear-gradient(160deg, hsl(18 13% 10%), hsl(20 16% 6%));
     --gradient-hero: radial-gradient(circle at 50% 0%, hsl(0 90% 60% / 0.55), transparent 62%);
 
     /* Shadows */
-    --shadow-glow: 0 0 40px -8px hsl(0 92% 45% / 0.45);
+    --shadow-glow: 0 0 40px -8px hsl(359 93% 45% / 0.55);
     --shadow-gold: 0 0 30px -8px hsl(38 95% 55% / 0.45);
-    --shadow-card: 0 18px 40px -16px hsl(0 60% 30% / 0.18);
-    --shadow-float: 0 24px 60px -16px hsl(0 60% 30% / 0.28);
+    --shadow-card: 0 24px 50px -24px hsl(0 0% 0% / 0.7);
+    --shadow-float: 0 30px 70px -24px hsl(0 0% 0% / 0.8);
 
     /* Motion */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -81,14 +81,14 @@
 
     --radius: 1.25rem;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 14%;
-    --sidebar-primary: 0 92% 43%;
+    --sidebar-background: 18 13% 9%;
+    --sidebar-foreground: 36 33% 93%;
+    --sidebar-primary: 359 93% 43%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 60% 96%;
-    --sidebar-accent-foreground: 0 0% 14%;
-    --sidebar-border: 0 12% 87%;
-    --sidebar-ring: 0 92% 43%;
+    --sidebar-accent: 18 10% 13%;
+    --sidebar-accent-foreground: 36 33% 93%;
+    --sidebar-border: 20 10% 18%;
+    --sidebar-ring: 38 95% 55%;
   }
 }
 
@@ -101,15 +101,16 @@
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
     -webkit-tap-highlight-color: transparent;
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100%;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: "Rezvan", sans-serif;
+    font-family: "Vazirmatn", "Rezvan", sans-serif;
+    -webkit-font-smoothing: antialiased;
     direction: rtl;
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100%;
     width: 100%;
   }
@@ -117,12 +118,12 @@
   /* Ensure the React root never exceeds the viewport width. */
   #root {
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.25);
-    color: hsl(var(--primary));
+    background: hsl(var(--primary));
+    color: white;
   }
 
   /* Custom scrollbar */
@@ -131,12 +132,12 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: hsl(0 40% 94%);
+    background: hsl(var(--background));
   }
   ::-webkit-scrollbar-thumb {
     background: hsl(0 84% 48% / 0.6);
     border-radius: 999px;
-    border: 2px solid hsl(0 40% 94%);
+    border: 2px solid hsl(var(--background));
   }
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--primary));
@@ -206,7 +207,7 @@
 
   /* Decorative dotted / grid backgrounds */
   .bg-dots {
-    background-image: radial-gradient(hsl(0 0% 0% / 0.05) 1px, transparent 1px);
+    background-image: radial-gradient(hsl(0 0% 100% / 0.06) 1px, transparent 1px);
     background-size: 22px 22px;
   }
 
@@ -540,4 +541,88 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shimmer 2.2s linear infinite;
+}
+
+/* ============================================================
+   Redesign utilities
+   ============================================================ */
+
+/* Lenis smooth scrolling */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Outlined display numerals / words */
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px hsl(var(--cream) / 0.22);
+}
+
+/* Hand-printed halftone dots, echoing the logo artwork */
+.halftone {
+  background-image: radial-gradient(hsl(0 0% 100% / 0.16) 1.4px, transparent 1.6px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, black 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, black 75%);
+}
+
+/* Subtle film grain over the whole page */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Hover devices see "hover" copy; touch devices see "tap" copy */
+.hint-touch {
+  display: none;
+}
+@media (hover: none), (pointer: coarse) {
+  .hint-hover {
+    display: none;
+  }
+  .hint-touch {
+    display: inline;
+  }
+}
+
+/* Hero scroll cue */
+.scroll-cue {
+  animation: scroll-cue 1.8s var(--ease-out-expo) infinite;
+}
+@keyframes scroll-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(200%);
+  }
+}
+
+/* Ingredient tape */
+.marquee-track {
+  animation: marquee 38s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .scroll-cue,
+  .animate-float-soft,
+  .animate-ping-slow {
+    animation: none !important;
+  }
 }

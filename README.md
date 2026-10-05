@@ -36,6 +36,39 @@ on the production server (`5.57.39.207`) — no new database or storage is insta
 
 ---
 
+## Branches — which version is which
+
+| Branch        | What it is                                                         |
+| ------------- | ------------------------------------------------------------------ |
+| `main`        | Untouched history. Live site = its `bergeerd_new_menu/` folder.    |
+| `production`  | Same live site code, cleaned up into a single `bergeerd_menu/`.    |
+| `old-design`  | The retired previous design, as the single `bergeerd_menu/`.       |
+| `redesign`    | Motion-first redesign (this branch), built on `production`.        |
+
+Run any version locally (the menu falls back to the static data in
+`src/data/menuData.ts` when no API is configured):
+
+```bash
+git switch redesign            # or: production / old-design
+cd bergeerd_menu
+npm install
+npm run dev                    # → http://localhost:3000
+```
+
+### Redesign notes
+
+- Burgers and sandwiches open into an exploded view of their layers on hover
+  (mouse), tap (touch — tap again or outside to close) or Enter (keyboard).
+- The layers are illustrated SVGs (`src/components/burger/`). Which layers a
+  burger has is read from its existing description text
+  (`src/lib/burgerLayers.ts`), so items edited in the admin panel work
+  without any data change.
+- Animation: `motion` (springs, scroll-linked effects), `lenis` (desktop
+  smooth scroll). Body text uses self-hosted Vazirmatn; Rezvan stays the
+  display face.
+
+---
+
 ## Prerequisites (local development)
 
 Install these on your machine:
