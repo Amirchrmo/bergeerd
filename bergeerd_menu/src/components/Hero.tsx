@@ -208,7 +208,7 @@ const Hero = ({ ready }: HeroProps) => {
 
         {/* scroll cue */}
         <motion.button
-          onClick={() => scrollToId("anatomy", 0)}
+          onClick={() => scrollToId("menu")}
           initial={{ opacity: 0 }}
           animate={show}
           variants={{ show: { opacity: 1 }, hidden: { opacity: 0 } }}

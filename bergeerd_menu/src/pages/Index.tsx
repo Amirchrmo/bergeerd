@@ -2,7 +2,6 @@ import { useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { Flame } from "lucide-react";
 import Hero from "@/components/Hero";
-import BurgerAnatomy from "@/components/BurgerAnatomy";
 import IngredientMarquee from "@/components/IngredientMarquee";
 import CategoryNav, { type CategoryNavEntry } from "@/components/CategoryNav";
 import MenuSection, { slugify } from "@/components/MenuSection";
@@ -21,9 +20,8 @@ const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
  * Main page.
  *
  * Loads the menu from the API (with the static fallback) and lays out the
- * experience: Hero → burger anatomy (scroll showcase) → ingredient marquee →
- * sticky category nav + menu sections → entertainment game → location →
- * footer.
+ * experience: Hero → ingredient marquee → sticky category nav + menu
+ * sections → entertainment game → location → footer.
  */
 const Index = ({ ready }: { ready: boolean }) => {
   const { data: sections = [] } = useMenu();
@@ -53,21 +51,17 @@ const Index = ({ ready }: { ready: boolean }) => {
     [visibleSections],
   );
 
-  // Showcase the burger with the most layers; collect ingredient names.
-  const { featured, ingredients } = useMemo(() => {
-    let best: { name: string; recipe: NonNullable<ReturnType<typeof parseBurgerRecipe>> } | null = null;
+  // Collect ingredient names for the marquee.
+  const ingredients = useMemo(() => {
     const words = new Set<string>();
     for (const section of visibleSections) {
       for (const item of section.items) {
-        const recipe = parseBurgerRecipe(item.description);
-        if (!recipe) continue;
-        recipe.layers.forEach((l) => l.label && words.add(l.label));
-        if (!best || recipe.layers.length > best.recipe.layers.length) {
-          best = { name: item.name, recipe };
-        }
+        parseBurgerRecipe(item.description)?.layers.forEach(
+          (l) => l.label && words.add(l.label),
+        );
       }
     }
-    return { featured: best, ingredients: [...words] };
+    return [...words];
   }, [visibleSections]);
 
   return (
@@ -76,10 +70,6 @@ const Index = ({ ready }: { ready: boolean }) => {
         <Hero ready={ready} />
 
         <CategoryNav categories={navCategories} />
-
-        {featured && (
-          <BurgerAnatomy name={featured.name} recipe={featured.recipe} />
-        )}
 
         <IngredientMarquee words={ingredients} />
 
