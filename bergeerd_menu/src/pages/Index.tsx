@@ -5,6 +5,7 @@ import Hero from "@/components/Hero";
 import IngredientMarquee from "@/components/IngredientMarquee";
 import CategoryNav, { type CategoryNavEntry } from "@/components/CategoryNav";
 import MenuSection, { slugify } from "@/components/MenuSection";
+import MenuBackdrop from "@/components/MenuBackdrop";
 import GameSection from "@/components/GameSection";
 import LocationSection from "@/components/LocationSection";
 import Footer from "@/components/Footer";
@@ -74,59 +75,65 @@ const Index = ({ ready }: { ready: boolean }) => {
         <IngredientMarquee words={ingredients} />
 
         {/* Menu */}
-        <main id="menu" className="container mx-auto scroll-mt-24 px-4 pb-10 pt-20 md:pt-28">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-4 flex flex-col items-center text-center">
-              <motion.span
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
-                className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-body text-xs text-burger-red-light"
-              >
-                <Flame className="h-3.5 w-3.5" />
-                منوی برگرد
-              </motion.span>
-              <motion.div
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="overflow-hidden pb-2"
-              >
-                <motion.h2
-                  variants={{ hidden: { y: "105%" }, show: { y: "0%" } }}
-                  transition={{ duration: 1, ease: EASE_OUT_EXPO }}
-                  className="font-display text-5xl text-cream md:text-8xl"
+        <div className="relative">
+          <MenuBackdrop />
+          <main
+            id="menu"
+            className="container relative mx-auto scroll-mt-24 px-4 pb-10 pt-20 md:pt-28"
+          >
+            <div className="mx-auto max-w-6xl">
+              <div className="mb-4 flex flex-col items-center text-center">
+                <motion.span
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
+                  className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-body text-xs text-burger-red-light"
                 >
-                  چی <span className="text-gradient-fire">می‌خوای</span>؟
-                </motion.h2>
-              </motion.div>
-              <motion.p
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-                className="mt-3 max-w-md font-body text-sm leading-7 text-muted-foreground md:text-base"
-              >
-                <span className="hint-hover">
-                  ماوس رو روی هر برگر نگه دار تا لایه‌هاش از هم باز بشن.
-                </span>
-                <span className="hint-touch">
-                  روی عکس هر برگر بزن تا لایه‌هاش از هم باز بشن.
-                </span>
-              </motion.p>
-            </div>
+                  <Flame className="h-3.5 w-3.5" />
+                  منوی برگرد
+                </motion.span>
+                <motion.div
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true }}
+                  className="overflow-hidden pb-2"
+                >
+                  <motion.h2
+                    variants={{ hidden: { y: "105%" }, show: { y: "0%" } }}
+                    transition={{ duration: 1, ease: EASE_OUT_EXPO }}
+                    className="font-display text-5xl text-cream md:text-8xl"
+                  >
+                    چی <span className="text-gradient-fire">می‌خوای</span>؟
+                  </motion.h2>
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                  className="mt-3 max-w-md font-body text-sm leading-7 text-muted-foreground md:text-base"
+                >
+                  <span className="hint-hover">
+                    ماوس رو روی هر برگر نگه دار تا لایه‌هاش از هم باز بشن.
+                  </span>
+                  <span className="hint-touch">
+                    روی عکس هر برگر بزن تا لایه‌هاش از هم باز بشن.
+                  </span>
+                </motion.p>
+              </div>
 
-            {visibleSections.map((section, i) => (
-              <MenuSection
-                key={section.title}
-                title={section.title}
-                items={section.items}
-                index={i}
-              />
-            ))}
-          </div>
-        </main>
+              {visibleSections.map((section, i) => (
+                <MenuSection
+                  key={section.title}
+                  title={section.title}
+                  items={section.items}
+                  index={i}
+                />
+              ))}
+            </div>
+          </main>
+        </div>
 
         {/* Entertainment */}
         <GameSection />
