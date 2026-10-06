@@ -31,6 +31,6 @@ fi
 echo "rollback: restoring $src -> $WEB"
 rsync -a --delete --exclude '/admin/' "$src/" "$WEB/"
 
-code=$(docker exec bergeerd-nginx wget -q -S -O /dev/null http://localhost/ 2>&1 | awk '/HTTP\//{print $2; exit}')
+code=$(docker exec bergeerd-nginx curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/ || true)
 echo "rollback: done; bergeerd-nginx / -> HTTP ${code:-?}"
 [[ "$code" == "200" ]]
