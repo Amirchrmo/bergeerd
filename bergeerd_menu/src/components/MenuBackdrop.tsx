@@ -1,13 +1,13 @@
 // `?url`: Vite only treats lower-case extensions as assets by default.
-import eyeBg from "@/assets/eye-bg.JPG?url";
+import eyeBg from "@/assets/eye-bg-full.JPG?url";
 
 /**
  * Eye artwork behind the menu items.
  *
- * The image is black ink on white; inverted, at low opacity, only the strokes
- * show as a light tint over the dark page. On phones the whole pair of eyes
- * is shown (slightly wider than the screen); on wider screens it covers the
- * viewport, framed on the eyes. The layer is sticky, so it stays
+ * The original black-on-white image, only slightly transparent so it
+ * blends with the page. It fills the screen; on phones (portrait) that
+ * zooms in on the left eye, on wider screens it shows both eyes and
+ * brows. The layer is sticky, so it stays
  * in view for the whole menu while the cards scroll over it. Gradient
  * overlays (cheaper than masking the whole tall section) fade its top and
  * bottom edges into the surrounding page.
@@ -22,7 +22,7 @@ const MenuBackdrop = () => (
         src={eyeBg}
         alt=""
         decoding="async"
-        className="absolute left-1/2 top-[46%] h-auto w-[115%] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-[0.13] [filter:invert(1)] [will-change:transform] md:left-0 md:top-0 md:h-full md:w-full md:translate-x-0 md:translate-y-0 md:object-cover md:object-[50%_32%]"
+        className="h-full w-full object-cover object-[30%_50%] opacity-[0.6] [will-change:transform] md:object-center"
       />
     </div>
     <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-background to-transparent" />
