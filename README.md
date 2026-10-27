@@ -6,8 +6,9 @@ status) are managed through a secure **Admin Panel** and served to the public
 website through a **REST API**, so any change in the panel appears on the site
 automatically.
 
-The system reuses the **existing MongoDB** and **MinIO** services already running
-on the production server (`5.57.39.207`) — no new database or storage is installed.
+The system uses the shared **MongoDB** and **MinIO** services on the production
+server (`109.122.254.194`, the `/opt/infra` stack) — no extra database or storage
+is installed for bergeerd.
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -54,9 +55,9 @@ an **SSH tunnel** (see step 2 below).
 Server access:
 
 ```
-Host: 5.57.39.207
-Port: 3939
-User: root
+Host: 109.122.254.194
+Port: 22
+User: arisan   (SSH key auth — run `ssh-copy-id arisan@109.122.254.194` once)
 ```
 
 ---
@@ -77,14 +78,14 @@ ports (no host mapping). Forward them to your localhost with two SSH tunnels:
 
 ```bash
 # Terminal A — tunnel MongoDB (server container 172.18.0.3:27017 -> localhost:27017)
-sshpass -p '9qA@NtZ5EP$pkD&' ssh -N \
+ssh -N \
   -L 27017:172.18.0.3:27017 \
-  -p 3939 root@5.57.39.207
+  arisan@109.122.254.194
 
 # Terminal B — tunnel MinIO (server container 172.18.0.2:9000 -> localhost:9000)
-sshpass -p '9qA@NtZ5EP$pkD&' ssh -N \
+ssh -N \
   -L 9000:172.18.0.2:9000 \
-  -p 3939 root@5.57.39.207
+  arisan@109.122.254.194
 ```
 
 > Leave both terminals open. The `-N` flag means "no remote command, just
@@ -92,8 +93,8 @@ sshpass -p '9qA@NtZ5EP$pkD&' ssh -N \
 >
 > If the container IPs change, find the current ones with:
 > ```bash
-> sshpass -p '9qA@NtZ5EP$pkD&' ssh -p 3939 root@5.57.39.207 \
->   'docker network inspect sansyar_default \
+> ssh arisan@109.122.254.194 \
+>   'docker network inspect data-net \
 >    --format "{{range .Containers}}{{.Name}} {{.IPv4Address}}{{println}}{{end}}"'
 > ```
 
@@ -116,8 +117,8 @@ JWT_SECRET=<paste-the-output-of-openssl-rand-here>
 MONGO_URI=mongodb://localhost:27017
 MONGO_DATABASE=bergeerd
 MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
+MINIO_ACCESS_KEY=minio-admin
+MINIO_SECRET_KEY=<MINIO_ROOT_PASSWORD from /opt/infra/.env on the server>
 MINIO_BUCKET=bergeerd
 MINIO_USE_SSL=false
 
@@ -273,9 +274,13 @@ When input is invalid, the API returns `400` with field-level errors:
 
 ## Production Deployment
 
-The backend and admin panel are deployed to the same server (`5.57.39.207`)
-and join the existing `sansyar_default` Docker network so they can reach MongoDB
-and MinIO by container name.
+The backend and admin panel are deployed to `/opt/bergeerd` on the ParsPack
+server (`109.122.254.194`) and join the `data-net` Docker network so they can
+reach MongoDB (`mongo`) and MinIO (`minio`) by container name. `bergeerd-nginx`
+also joins `proxy-net`, where the `edge` container (`/opt/infra`, the only one
+publishing ports 80/443) routes `bergeerd.ir` / `www.bergeerd.ir` to it.
+Visitor HTTPS is terminated by the ParsPack CDN. Every container has a
+`mem_limit` — the server has ~2 GB RAM.
 
 ### 1. Build the API Docker image (on the server)
 
@@ -297,11 +302,11 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<change-this-password>
 SEED_MENU=false                       # set true only on first deploy
 
-MONGO_URI=mongodb://sansyar-mongo:27017   # docker network DNS
+MONGO_URI=mongodb://mongo:27017          # docker network DNS (data-net)
 MONGO_DATABASE=bergeerd
-MINIO_ENDPOINT=sansyar-minio:9000         # docker network DNS
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
+MINIO_ENDPOINT=minio:9000                # docker network DNS (data-net)
+MINIO_ACCESS_KEY=minio-admin
+MINIO_SECRET_KEY=<MINIO_ROOT_PASSWORD from /opt/infra/.env>
 MINIO_BUCKET=bergeerd
 MINIO_USE_SSL=false
 MINIO_PUBLIC_URL=https://bergeerd.ir/bergeerd-minio   # proxied by Nginx
@@ -314,7 +319,7 @@ CORS_ORIGINS=https://bergeerd.ir
 VITE_API_URL=https://bergeerd.ir/api
 ```
 
-### 4. Nginx proxy rules (Nginx Proxy Manager or custom)
+### 4. Nginx proxy rules (`/opt/bergeerd/nginx/default.conf`)
 
 Add these location blocks so the public domain serves the API, admin panel,
 and MinIO images over HTTPS:
@@ -332,7 +337,7 @@ location /admin/ {
 
 # MinIO images (public, anonymous read)
 location /bergeerd-minio/ {
-    proxy_pass http://sansyar-minio:9000/bergeerd/;
+    proxy_pass http://minio:9000/bergeerd/;
 }
 ```
 
@@ -427,10 +432,10 @@ cd bergeerd_menu && npm install && npm run build
 
 - **Change the default admin password** (`ADMIN_PASSWORD`) before production.
 - **Use a strong `JWT_SECRET`** (48+ random bytes) in production.
-- MongoDB on the server currently runs **without auth** (inherited from the
-  existing `sansyar` setup). Restrict network access accordingly.
+- MongoDB on the server runs **without auth**; it is only reachable on the
+  internal `data-net` Docker network (no published ports).
 - MinIO bucket `bergeerd` is created with an **anonymous-read** policy so the
   public website can load images without credentials. Writes require the
-  `minioadmin` credentials (change these for production).
+  MinIO root credentials kept in `/opt/infra/.env` on the server.
 - CORS is configurable via `CORS_ORIGINS`; in production set it to only
   `https://bergeerd.ir`.

@@ -82,13 +82,19 @@ func main() {
 	if cfg.SeedMenu {
 		// SEED_IMAGES_DIR optionally points at the website's src/assets so the
 		// seeder uploads the existing product photos to MinIO on first run.
-		imagesDir := os.Getenv("SEED_IMAGES_DIR")
-		items := seeder.BuildSeedItems(ctx, store, imagesDir)
-		if err := menuSvc.SeedIfEmpty(ctx, items); err != nil {
-			log.Printf("seed menu: %v", err)
-		} else {
-			n, _ := menuSvc.Count(ctx)
+		// BuildSeedItems uploads images, so only call it when the menu is empty —
+		// otherwise every restart leaves a fresh set of orphaned objects in MinIO.
+		if n, err := menuSvc.Count(ctx); err == nil && n > 0 {
 			log.Printf("seed menu: %d items present", n)
+		} else {
+			imagesDir := os.Getenv("SEED_IMAGES_DIR")
+			items := seeder.BuildSeedItems(ctx, store, imagesDir)
+			if err := menuSvc.SeedIfEmpty(ctx, items); err != nil {
+				log.Printf("seed menu: %v", err)
+			} else {
+				n, _ := menuSvc.Count(ctx)
+				log.Printf("seed menu: %d items present", n)
+			}
 		}
 	}
 
