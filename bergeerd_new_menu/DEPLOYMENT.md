@@ -1,5 +1,10 @@
 # Bergeerd Deployment — `bergeerd.ir`
 
+> **Historical (superseded 2026-10-27).** This records the original deployment
+> on the old server `5.57.39.207` (Nginx Proxy Manager, Cloudflare DNS, certbot).
+> Production now runs on the ParsPack server `109.122.254.194` behind ParsPack
+> CDN — see "Production Deployment" in the root [README](../README.md).
+
 Deployment of the React (Vite + TS + shadcn) static site, replicating the
 existing `comode` (comodeconcept.ir) architecture on server `5.57.39.207`.
 
