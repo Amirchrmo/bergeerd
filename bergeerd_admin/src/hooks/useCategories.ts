@@ -1,53 +1,42 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { listCategories } from "../api";
-import { CATEGORIES, type CategoryDoc } from "../types";
+import type { Category } from "../types";
 
 /**
- * Fetches the dynamic categories from the backend and exposes them together
- * with a derived `{ value, label }` list that the existing UI (Dashboard tabs,
- * ItemForm segmented buttons) consumes.
- *
- * On any error we fall back to the static `CATEGORIES` seed defaults so the
- * panel keeps working even if the backend is unreachable on first load.
+ * A branch's categories, plus the `{ value, label }` options (in display
+ * order) used by the menu page's tabs and the item form.
  */
-export function useCategories() {
-  const [cats, setCats] = useState<CategoryDoc[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useCategories(branchId: string | undefined) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState("");
 
-  async function refresh() {
-    setLoading(true);
+  const reload = useCallback(async () => {
+    if (!branchId) return;
     try {
-      const data = await listCategories();
-      setCats(data);
-    } catch {
-      // Keep whatever we had; the derived list below falls back to seed defaults.
-      setCats((prev) => prev);
-    } finally {
-      setLoading(false);
+      setCategories(await listCategories(branchId));
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطا در بارگذاری دسته‌ها");
     }
-  }
+  }, [branchId]);
 
   useEffect(() => {
-    refresh();
-  }, []);
+    setCategories([]);
+    reload();
+  }, [reload]);
 
-  // Derived { value, label } list sorted by category priority (ascending),
-  // matching website section order. Prefer the API; fall back to static seed
-  // defaults when the API hasn't returned anything yet.
-  const options =
-    cats.length > 0
-      ? [...cats]
-          .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "fa"))
-          .map((c) => ({ value: c.slug, label: c.title || c.slug }))
-      : CATEGORIES;
+  const options = useMemo(
+    () =>
+      [...categories]
+        .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "fa"))
+        .map((c) => ({ value: c.slug, label: c.title || c.slug })),
+    [categories],
+  );
 
-  // Quick lookup: slug -> human title (used for table cells, etc.).
-  const titleBySlug = (slug: string): string => {
-    const found = cats.find((c) => c.slug === slug);
-    if (found) return found.title || found.slug;
-    const fallback = CATEGORIES.find((c) => c.value === slug);
-    return fallback ? fallback.label : slug;
-  };
+  const titleBySlug = useCallback(
+    (slug: string) => categories.find((c) => c.slug === slug)?.title || slug,
+    [categories],
+  );
 
-  return { categories: cats, options, titleBySlug, loading, refresh };
+  return { categories, options, titleBySlug, error, reload };
 }

@@ -1,6 +1,8 @@
 import type {
   ApiError,
-  CategoryDoc,
+  Branch,
+  BranchInput,
+  Category,
   CategoryInput,
   LoginResponse,
   MenuItem,
@@ -68,6 +70,11 @@ async function request<T>(
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
 
+  if (res.status === 401 && auth) {
+    // Expired session: AuthProvider listens for "storage" and shows the login page.
+    clearToken();
+    window.dispatchEvent(new Event("storage"));
+  }
   if (!res.ok) {
     const message = data?.error || `Request failed with status ${res.status}`;
     throw new HttpError(res.status, data ?? null, message);
@@ -78,70 +85,60 @@ async function request<T>(
 }
 
 // ----- Auth -----
+const json = (method: string, body: unknown): RequestInit => ({
+  method,
+  body: JSON.stringify(body),
+});
+
 export function login(username: string, password: string): Promise<LoginResponse> {
-  return request<LoginResponse>(
-    "/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-    },
-    false,
-  );
+  return request<LoginResponse>("/auth/login", json("POST", { username, password }), false);
 }
 
-// ----- Menu items (admin) -----
-export function listMenuItems(): Promise<MenuItem[]> {
-  return request<MenuItem[]>("/admin/menu");
+// ----- Branches -----
+export function listBranches(): Promise<Branch[]> {
+  return request<Branch[]>("/admin/branches");
 }
 
-export function getMenuItem(id: string): Promise<MenuItem> {
-  return request<MenuItem>(`/admin/menu/${id}`);
+export function createBranch(input: BranchInput): Promise<Branch> {
+  return request<Branch>("/admin/branches", json("POST", input));
 }
 
-export function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
-  return request<MenuItem>("/admin/menu", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+export function updateBranch(id: string, input: BranchInput): Promise<Branch> {
+  return request<Branch>(`/admin/branches/${id}`, json("PUT", input));
+}
+
+export function deleteBranch(id: string): Promise<void> {
+  return request<void>(`/admin/branches/${id}`, { method: "DELETE" });
+}
+
+// ----- Menu items (scoped to a branch) -----
+export function listMenuItems(branchId: string): Promise<MenuItem[]> {
+  return request<MenuItem[]>(`/admin/menu?branch_id=${branchId}`);
+}
+
+export function createMenuItem(branchId: string, input: MenuItemInput): Promise<MenuItem> {
+  return request<MenuItem>("/admin/menu", json("POST", { ...input, branch_id: branchId }));
 }
 
 export function updateMenuItem(id: string, input: MenuItemInput): Promise<MenuItem> {
-  return request<MenuItem>(`/admin/menu/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(input),
-  });
+  return request<MenuItem>(`/admin/menu/${id}`, json("PUT", input));
 }
 
 export function deleteMenuItem(id: string): Promise<void> {
   return request<void>(`/admin/menu/${id}`, { method: "DELETE" });
 }
 
-// ----- Categories (dynamic, managed from the admin panel) -----
-// Public endpoint (no auth) returns the same ordered list as the admin one;
-// we still use the admin route to keep things explicit for the panel.
-export function listCategories(): Promise<CategoryDoc[]> {
-  return request<CategoryDoc[]>("/admin/categories");
+// ----- Categories (scoped to a branch) -----
+export function listCategories(branchId: string): Promise<Category[]> {
+  return request<Category[]>(`/admin/categories?branch_id=${branchId}`);
 }
 
-export function getCategory(id: string): Promise<CategoryDoc> {
-  return request<CategoryDoc>(`/admin/categories/${id}`);
+export function createCategory(branchId: string, input: CategoryInput): Promise<Category> {
+  return request<Category>("/admin/categories", json("POST", { ...input, branch_id: branchId }));
 }
 
-export function createCategory(input: CategoryInput): Promise<CategoryDoc> {
-  return request<CategoryDoc>("/admin/categories", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateCategory(
-  id: string,
-  input: CategoryInput,
-): Promise<CategoryDoc> {
-  return request<CategoryDoc>(`/admin/categories/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(input),
-  });
+export function updateCategory(id: string, input: CategoryInput): Promise<Category> {
+  return request<Category>(`/admin/categories/${id}`, json("PUT", input));
 }
 
 export function deleteCategory(id: string): Promise<void> {

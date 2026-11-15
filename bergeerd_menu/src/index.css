@@ -1,0 +1,365 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Rezvan";
+  src: url("./assets/Rezvan.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================
+   Bergeerd — site-wide styles.
+   The :root tokens below are the default ("ember") design: dark,
+   warm and cinematic. Other designs override the tokens they need
+   under html[data-theme="<key>"] (see each theme in src/themes).
+   All colors are HSL tokens.
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* Base surfaces — warm, near-black espresso so the food photos glow */
+    --background: 20 16% 5%;
+    --foreground: 36 33% 93%;
+
+    --card: 18 13% 9%;
+    --card-foreground: 36 33% 93%;
+
+    /* Bergeerd signature red (#d2080b) */
+    --primary: 359 93% 43%;
+    --primary-foreground: 0 0% 100%;
+
+    --muted: 18 8% 15%;
+    --muted-foreground: 30 10% 64%;
+
+    --border: 20 10% 18%;
+
+    /* Custom burger shop colors */
+    --burger-red: 359 93% 43%;
+    --burger-red-dark: 0 86% 35%;
+    --burger-red-light: 4 90% 60%;
+    --gold: 40 96% 58%;
+    --gold-soft: 42 92% 66%;
+    --cream: 36 45% 94%;
+    --ink: 20 25% 8%;
+    --ember: 16 90% 56%;
+
+    /* Gradients */
+    --gradient-red: linear-gradient(135deg, hsl(4 90% 56%), hsl(0 84% 44%));
+    --gradient-fire: linear-gradient(135deg, hsl(40 96% 60%), hsl(14 92% 54%) 55%, hsl(359 93% 50%));
+
+    /* Shadows */
+    --shadow-glow: 0 0 40px -8px hsl(359 93% 45% / 0.55);
+    --shadow-gold: 0 0 30px -8px hsl(38 95% 55% / 0.45);
+    --shadow-card: 0 24px 50px -24px hsl(0 0% 0% / 0.7);
+    --shadow-float: 0 30px 70px -24px hsl(0 0% 0% / 0.8);
+
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Vazirmatn", "Rezvan", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    direction: rtl;
+    overflow-x: clip;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  /* Ensure the React root never exceeds the viewport width. */
+  #root {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background: hsl(var(--primary));
+    color: white;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 84% 48% / 0.6);
+    border-radius: 999px;
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+
+  .font-persian {
+    font-family: "Rezvan", sans-serif;
+  }
+}
+
+/* ============================================================
+   Reusable utility classes
+   ============================================================ */
+@layer components {
+  .text-gradient-red {
+    background: var(--gradient-red);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .text-gradient-fire {
+    background: var(--gradient-fire);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .ring-gold {
+    box-shadow: var(--shadow-gold);
+  }
+
+  /* Decorative dotted / grid backgrounds */
+  .bg-dots {
+    background-image: radial-gradient(hsl(0 0% 100% / 0.06) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* Hide scrollbar but keep scroll (used for pill rows) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Scroll-reveal system (driven by IntersectionObserver hook)
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition:
+    opacity 0.8s var(--ease-out-expo),
+    transform 0.8s var(--ease-out-expo);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-left {
+  transform: translateX(-50px);
+}
+.reveal-right {
+  transform: translateX(50px);
+}
+.reveal-scale {
+  transform: scale(0.92);
+}
+.reveal-left.is-visible,
+.reveal-right.is-visible,
+.reveal-scale.is-visible {
+  transform: translate(0, 0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-left,
+  .reveal-right,
+  .reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ============================================================
+   Keyframe animations
+   ============================================================ */
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(3deg);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ping-slow {
+  75%,
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+/* ============================================================
+   Animation utility classes
+   ============================================================ */
+.animate-float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+}
+.animate-ping-slow {
+  animation: ping-slow 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.animate-pop {
+  animation: pop 0.4s var(--ease-spring);
+}
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* ============================================================
+   Redesign utilities
+   ============================================================ */
+
+/* Lenis smooth scrolling */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Outlined display numerals / words */
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px hsl(var(--cream) / 0.22);
+}
+
+/* Hand-printed halftone dots, echoing the logo artwork */
+.halftone {
+  background-image: radial-gradient(hsl(0 0% 100% / 0.16) 1.4px, transparent 1.6px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, black 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, black 75%);
+}
+
+/* Subtle film grain over the whole page */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Hover devices see "hover" copy; touch devices see "tap" copy */
+.hint-touch {
+  display: none;
+}
+@media (hover: none), (pointer: coarse) {
+  .hint-hover {
+    display: none;
+  }
+  .hint-touch {
+    display: inline;
+  }
+}
+
+/* Hero scroll cue */
+.scroll-cue {
+  animation: scroll-cue 1.8s var(--ease-out-expo) infinite;
+}
+@keyframes scroll-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(200%);
+  }
+}
+
+/* Ingredient tape */
+.marquee-track {
+  animation: marquee 38s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .scroll-cue,
+  .animate-float-soft,
+  .animate-ping-slow {
+    animation: none !important;
+  }
+}

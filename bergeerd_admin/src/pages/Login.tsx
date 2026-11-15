@@ -66,7 +66,7 @@ export default function Login() {
               onChange={(e) => setUsername(e.target.value)}
               autoFocus
               required
-              className="w-full px-3 py-2.5 rounded-xl border border-black/10 bg-background focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition"
+              className="w-full px-3 py-2.5 rounded-xl border border-black/10 focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition"
               placeholder="admin"
             />
           </div>
@@ -79,7 +79,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2.5 rounded-xl border border-black/10 bg-background focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition"
+              className="w-full px-3 py-2.5 rounded-xl border border-black/10 focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition"
               placeholder="••••••••"
             />
           </div>

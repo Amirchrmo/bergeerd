@@ -1,441 +1,183 @@
-# Bergeerd — Admin Panel & Dynamic Menu
+# Bergeerd — multi-branch menu, admin panel & API
 
-This monorepo makes the **bergeerd** restaurant website's menu fully dynamic.
-Menu items (prices, images, titles, descriptions, categories, ordering, active
-status) are managed through a secure **Admin Panel** and served to the public
-website through a **REST API**, so any change in the panel appears on the site
-automatically.
+The public menu site (bergeerd.ir), its admin panel and the REST API behind
+them. Every **branch** (restaurant location) has its own menu, prices, design
+and page address, all managed from one admin panel and served by one
+deployment.
 
-The system uses the shared **MongoDB** and **MinIO** services on the production
-server (`109.122.254.194`, the `/opt/infra` stack) — no extra database or storage
-is installed for bergeerd.
+| URL | Shows |
+| --- | --- |
+| `bergeerd.ir/` | the **default branch** (Ardabil): what the printed QR codes open |
+| `bergeerd.ir/<slug>` | any other active branch, e.g. `bergeerd.ir/tehran` |
+| `bergeerd.ir/admin/` | admin panel |
+| `bergeerd.ir/api/…` | REST API |
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  bergeerd_menu  │     │  bergeerd_admin │     │   bergeerd_api  │
-│  (public site)  │     │  (admin panel)  │     │  (Go + Gin API) │
-│  React + Vite   │     │  React + Vite   │     │                 │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │ GET /api/menu          │ /api/admin/* (JWT)    │
-         └─────────── fetch ──────┴───────────────────────┘
-                                          │              │
-                          ┌───────────────▼───┐  ┌───────▼────────┐
-                          │  MongoDB (existing)│  │ MinIO (existing)│
-                          │  db: bergeerd      │  │ bucket: bergeerd│
-                          └───────────────────┘  └────────────────┘
+ bergeerd_menu (React)            bergeerd_admin (React)
+ /, /<slug>                       /admin/
+   │ GET /api/branches/<slug>/menu   │ /api/admin/* (JWT)
+   └──────────────┬──────────────────┘
+                  ▼
+           bergeerd_api (Go, Gin)
+             │            │
+         MongoDB        MinIO (photos)
+       db: bergeerd     bucket: bergeerd
 ```
-
----
 
 ## Repository layout
 
-| Folder          | What it is                                              |
-| --------------- | ------------------------------------------------------- |
-| `bergeerd_api/`  | Go (Gin) REST API — backend, JWT auth, CRUD, seeding  |
-| `bergeerd_admin/`| React (Vite + TS + Tailwind) admin panel               |
-| `bergeerd_menu/` | Existing public website — now fetches menu from the API |
+| Folder | What it is |
+| --- | --- |
+| `bergeerd_api/` | Go (Gin) REST API: branches, categories, items, auth, image upload |
+| `bergeerd_admin/` | Admin panel (React + Vite + Tailwind) |
+| `bergeerd_menu/` | Public website (React + Vite + Tailwind): shared data core + one *theme* per design |
+| `deploy/` | Deploy/rollback scripts and copies of the server's compose and nginx config |
 
----
+## How branches work
 
-## Prerequisites (local development)
+**Data.** `branches` holds each location: `slug` (its URL), `name`, `theme`
+(which website design it uses), contact details (address, phone, hours, map
+links, Instagram), `is_active`, and `is_default` (exactly one: the branch at
+the site root). `categories` and `menu_items` carry a `branch_id`, so names,
+photos and prices are fully independent per branch. Category slugs are unique
+per branch, so every branch can have its own `burgers`.
 
-Install these on your machine:
+**Opening a new location.** In the admin panel, *Branches → Add branch*, pick
+"copy the menu of …" and a design. The new branch starts as a copy of that
+menu; then change its prices and items. Copies share photo files; a photo is
+only deleted from storage once no item in any branch uses it.
 
-| Tool   | Version         | Check                  |
-| ------ | --------------- | ---------------------- |
-| Go     | 1.22+           | `go version`           |
-| Node   | 18+             | `node --version`       |
-| npm    | 9+              | `npm --version`        |
-| sshpass| any (for tunnel)| `sshpass -V`           |
+**Rules.** The default branch cannot be deleted or deactivated (it is what the
+QR codes show). Deleting another branch deletes its categories and items.
+Deactivating a branch hides its page (404) without losing data. Slugs that the
+server routes elsewhere (`admin`, `api`, `assets`, `health`,
+`bergeerd-minio`, `default`) are rejected.
 
-The server already has MongoDB and MinIO running in Docker but their ports are
-**not published to the host**, so for local development you connect to them over
-an **SSH tunnel** (see step 2 below).
+**Upgrading an existing database.** On every start the API runs an idempotent
+migration (`repository.MigrateToBranches`): it creates the default branch
+(Ardabil, with the contact details the site showed) if there is none, attaches
+all categories and items without a branch to it, and replaces the old indexes.
+The existing menu keeps being served at `/` unchanged.
 
-Server access:
+## Website designs (themes)
 
-```
-Host: 109.122.254.194
-Port: 22
-User: arisan   (SSH key auth — run `ssh-copy-id arisan@109.122.254.194` once)
-```
+`bergeerd_menu/src/themes/` holds one folder per design. Each branch picks one
+with its `theme` key, and each design is a separate chunk, so a visitor only
+downloads the design of the branch they open.
 
----
+| Key | Design | Used by |
+| --- | --- | --- |
+| `ember` | the original dark, cinematic, motion-heavy design | Ardabil (`/`) |
+| `paper` | light printed-menu design: awning masthead, receipt-style list, dish sheet | Tehran |
 
-## Local Development — step by step
+Everything that is not design lives in `src/core/` and is shared: loading a
+branch (`useBranchMenu`), URL → branch resolution, the offline fallback, types
+and formatting. A theme is just a component that receives `{ branch, sections }`.
+The site root also renders a static copy of the Ardabil menu
+(`core/fallback.ts`) instantly while the API loads, and keeps showing it if the
+API is unreachable, so a scanned QR code always opens a menu.
 
-### Step 1 — Clone & enter the project
+**Adding a design:** create `src/themes/<key>/index.tsx` (default export taking
+`ThemeProps`), register it in `src/themes/index.ts`, add the key to `THEMES` in
+`bergeerd_admin/src/types.ts`, deploy, then select it for a branch. Theme
+colours override the default tokens under `html[data-theme="<key>"]` (see
+`themes/paper/paper.css`).
 
-```bash
-git clone <your-repo-url> bergeerd
-cd bergeerd
-```
+## API
 
-### Step 2 — Open SSH tunnels to the existing MongoDB & MinIO
+Public (no auth, never cached):
 
-MongoDB and MinIO run as Docker containers on the server with **internal-only**
-ports (no host mapping). Forward them to your localhost with two SSH tunnels:
+| Method | Path | Returns |
+| --- | --- | --- |
+| GET | `/health` | `{"status":"ok"}` |
+| GET | `/api/branches/:slug/menu` | `{"data":{"branch":{…},"sections":[…]}}`; `:slug` = `default` for the root branch; 404 for unknown/inactive |
+| GET | `/api/menu` | the default branch's `sections` (the original response shape, kept for old clients) |
 
-```bash
-# Terminal A — tunnel MongoDB (server container 172.18.0.3:27017 -> localhost:27017)
-ssh -N \
-  -L 27017:172.18.0.3:27017 \
-  arisan@109.122.254.194
+A section is `{ "category", "title", "order", "items": [ … ] }`: active
+categories in order, each with its active items in order.
 
-# Terminal B — tunnel MinIO (server container 172.18.0.2:9000 -> localhost:9000)
-ssh -N \
-  -L 9000:172.18.0.2:9000 \
-  arisan@109.122.254.194
-```
+Admin (`Authorization: Bearer <jwt>` from `POST /api/auth/login`):
 
-> Leave both terminals open. The `-N` flag means "no remote command, just
-> forward ports". Verify with `mongosh`/`curl http://localhost:9000/minio/health/live`.
->
-> If the container IPs change, find the current ones with:
-> ```bash
-> ssh arisan@109.122.254.194 \
->   'docker network inspect data-net \
->    --format "{{range .Containers}}{{.Name}} {{.IPv4Address}}{{println}}{{end}}"'
-> ```
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET, POST | `/api/admin/branches` | POST accepts `copy_from: "<branch id>"` |
+| GET, PUT, DELETE | `/api/admin/branches/:id` | default branch: no DELETE (409), no deactivation |
+| GET, POST | `/api/admin/menu` | `?branch_id=` / body `branch_id`; omitted = default branch |
+| GET, PUT, DELETE | `/api/admin/menu/:id` | |
+| GET, POST | `/api/admin/categories` | `?branch_id=` / body `branch_id`; omitted = default branch |
+| GET, PUT, DELETE | `/api/admin/categories/:id` | |
+| POST | `/api/admin/upload` | multipart field `image`, max 10 MB, returns `{url,…}` |
 
-### Step 3 — Configure & start the Go backend (`bergeerd_api`)
+Invalid input returns `400 {"error":"validation failed","fields":{…}}`.
 
-#### 3.1 Create `.env`
+## Local development
 
-```bash
-cd bergeerd_api
-cp .env.example .env
-```
-
-Open `bergeerd_api/.env` and set at minimum:
-
-```dotenv
-# A strong random secret (generate with: openssl rand -base64 48)
-JWT_SECRET=<paste-the-output-of-openssl-rand-here>
-
-# Local dev points at the SSH tunnels from step 2
-MONGO_URI=mongodb://localhost:27017
-MONGO_DATABASE=bergeerd
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minio-admin
-MINIO_SECRET_KEY=<MINIO_ROOT_PASSWORD from /opt/infra/.env on the server>
-MINIO_BUCKET=bergeerd
-MINIO_USE_SSL=false
-
-# Images served from your local tunnel
-MINIO_PUBLIC_URL=http://localhost:9000
-
-# Allow the admin panel (:5173) + website (:3000) origins
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000
-
-# Seed the admin user + demo menu on first run
-SEED_ADMIN=true
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin123
-SEED_MENU=true
-```
-
-#### 3.2 (Optional) Upload existing product photos during seeding
-
-The seeder can upload the website's existing images from `bergeerd_menu/src/assets`
-into MinIO on first run. Set this extra env var before starting the API:
+Prerequisites: Go 1.22+, Node 18+, and MongoDB + MinIO on `localhost:27017` /
+`localhost:9000` (`dev-up.sh` expects the Docker containers `sansyar-mongo`
+and `sansyar-minio`).
 
 ```bash
-export SEED_IMAGES_DIR="$(pwd)/../bergeerd_menu/src/assets"
+cp bergeerd_api/.env.example bergeerd_api/.env       # set JWT_SECRET (openssl rand -base64 48)
+cp bergeerd_admin/.env.example bergeerd_admin/.env
+cp bergeerd_menu/.env.example bergeerd_menu/.env
+(cd bergeerd_admin && npm ci) && (cd bergeerd_menu && npm ci)
+./dev-up.sh      # API :8080, admin :5173, website :3000 (./dev-down.sh stops them)
 ```
 
-If unset, the seeder uses a placeholder image so the menu still seeds successfully.
+On an empty database the API seeds the default branch, its categories, an
+admin user (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) and, with `SEED_MENU=true`,
+the menu (photos uploaded from `SEED_IMAGES_DIR`, which `dev-up.sh` points at
+`bergeerd_menu/src/assets`). Create a second branch in the admin panel and
+open `http://localhost:3000/<slug>`.
 
-#### 3.3 Download deps & run
+Checks:
 
 ```bash
-go mod download
-go run ./cmd/api
+cd bergeerd_api && go vet ./... && go test ./...
+#   integration tests (throwaway database):
+#   BERGEERD_TEST_MONGO_URI=mongodb://localhost:27017 go test ./...
+cd bergeerd_admin && npm run build
+cd bergeerd_menu && npm run typecheck && npm run lint && npm run build
 ```
 
-You should see logs like:
+## Production
 
-```
-starting bergeerd-api — env=development port=8080 db=bergeerd minio=localhost:9000 bucket=bergeerd
-seed admin: ensured admin user "admin" exists
-seed menu: 23 items present
-http server listening on :8080
-```
-
-Verify the public endpoint:
+Server: Arisan-Srv (`arisan@109.122.254.194`), stack in `/opt/bergeerd`
+(`deploy/docker-compose.yml`): `bergeerd-api` and `bergeerd-nginx`, on the
+shared `data-net` (MongoDB `mongo`, MinIO `minio` from `/opt/infra`) and
+`proxy-net` (the `edge` proxy, behind the ParsPack CDN). `bergeerd-nginx`
+(`deploy/nginx/default.conf`) serves the website from `web/`, the admin panel
+from `web/admin/`, proxies `/api/` and the photos at `/bergeerd-minio/`.
+Branch pages need no nginx change: any unknown path falls back to the
+website's `index.html`, which reads the branch from the URL.
 
 ```bash
-curl http://localhost:8080/health      # -> {"status":"ok"}
-curl http://localhost:8080/api/menu    # -> {"data":[{"category":"burgers",...}]}
+deploy/deploy.sh api      # 1st: Go binary → /opt/bergeerd/api, rebuild container, health check
+deploy/deploy.sh admin    # 2nd: admin panel → web/admin/
+deploy/deploy.sh menu     # 3rd: website → web/ (snapshots the live site first)
+deploy/rollback.sh        # restore the previous website snapshot (--list to choose)
 ```
 
-### Step 4 — Configure & start the Admin Panel (`bergeerd_admin`)
+Order matters when a change spans the API and the frontends: the new API
+keeps serving the previous admin panel and website, not the other way round.
 
-```bash
-cd ../bergeerd_admin
-cp .env.example .env        # VITE_API_URL=http://localhost:8080/api
-npm install
-npm run dev
-```
+Rolling back the **API** (`cp bergeerd-api.prev bergeerd-api && docker compose
+up -d --build api` in `/opt/bergeerd/api`) is safe only until a second branch
+has categories: the pre-branch API recreates the global unique category-slug
+index and refuses to start once two branches share a slug, and it would show
+all branches' items at `/`.
 
-Open **http://localhost:5173** and log in:
-
-```
-Username: admin
-Password: admin123
-```
-
-You can now **create, edit, delete, and reorder** menu items and upload images.
-Changes are saved to MongoDB (data) and MinIO (images) through the API.
-
-### Step 5 — Configure & start the public website (`bergeerd_menu`)
-
-```bash
-cd ../bergeerd_menu
-cp .env.example .env        # VITE_API_URL=http://localhost:8080/api
-npm install
-npm run dev
-```
-
-Open **http://localhost:3000** (the website's dev server). The menu now loads
-from `GET http://localhost:8080/api/menu` (the Go backend). Any edit you make in
-the admin panel appears on the website after a refresh (or automatically via
-React Query's
-`refetchOnWindowFocus`).
-
-> **Fallback:** if `VITE_API_URL` is empty or the API is unreachable, the website
-> silently falls back to the static data in `bergeerd_menu/src/data/menuData.ts`,
-> so visitors always see a menu.
-
----
-
-## API Reference
-
-Base URL (local): `http://localhost:8080`
-
-### Public (no auth)
-
-| Method | Path           | Description                              |
-| ------ | -------------- | ---------------------------------------- |
-| GET    | `/health`      | Health check                             |
-| GET    | `/api/menu`    | Active items grouped by category (for the website) |
-
-Response shape for `GET /api/menu`:
-
-```json
-{
-  "data": [
-    { "category": "burgers", "items": [ { "id": "...", "name": "...", "price": "...", "image_url": "...", "image_alt": "...", "is_active": true, "order": 1 } ] },
-    { "category": "fries", "items": [ ... ] }
-  ]
-}
-```
-
-### Admin (JWT Bearer token required)
-
-Obtain a token first:
-
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin123"}'
-# -> {"data":{"token":"<jwt>","admin":{"username":"admin"}}}
-```
-
-Then use `Authorization: Bearer <jwt>`:
-
-| Method | Path                  | Description                          |
-| ------ | --------------------- | ------------------------------------ |
-| GET    | `/api/admin/menu`     | List all items (admin view)          |
-| POST   | `/api/admin/menu`     | Create a new item                    |
-| GET    | `/api/admin/menu/:id` | Get one item                         |
-| PUT    | `/api/admin/menu/:id` | Update an item (partial fields)      |
-| DELETE | `/api/admin/menu/:id` | Delete an item + its image           |
-| POST   | `/api/admin/upload`   | Upload an image (`multipart`, field `image`, max 10MB) → returns `{url,...}` |
-
-Example — create an item:
-
-```bash
-curl -X POST http://localhost:8080/api/admin/menu \
-  -H "Authorization: Bearer <jwt>" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"برگر جدید","description":"...","price":"۵۰۰","image_url":"http://localhost:9000/bergeerd/menu/abc.jpg","image_alt":"...","category":"burgers","order":10,"is_active":true}'
-```
-
-### Validation errors
-
-When input is invalid, the API returns `400` with field-level errors:
-
-```json
-{ "error": "validation failed", "fields": { "name": "name is required", "price": "price is required" } }
-```
-
----
-
-## Production Deployment
-
-The backend and admin panel are deployed to `/opt/bergeerd` on the ParsPack
-server (`109.122.254.194`) and join the `data-net` Docker network so they can
-reach MongoDB (`mongo`) and MinIO (`minio`) by container name. `bergeerd-nginx`
-also joins `proxy-net`, where the `edge` container (`/opt/infra`, the only one
-publishing ports 80/443) routes `bergeerd.ir` / `www.bergeerd.ir` to it.
-Visitor HTTPS is terminated by the ParsPack CDN. Every container has a
-`mem_limit` — the server has ~2 GB RAM.
-
-### 1. Build the API Docker image (on the server)
-
-```bash
-cd /opt/bergeerd/bergeerd_api
-docker build -t bergeerd-api:latest .
-```
-
-### 2. Production `.env` for the API
-
-```dotenv
-APP_ENV=production
-PORT=8080
-JWT_SECRET=<strong-random-secret>
-JWT_EXPIRES_HOURS=24
-
-SEED_ADMIN=true
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<change-this-password>
-SEED_MENU=false                       # set true only on first deploy
-
-MONGO_URI=mongodb://mongo:27017          # docker network DNS (data-net)
-MONGO_DATABASE=bergeerd
-MINIO_ENDPOINT=minio:9000                # docker network DNS (data-net)
-MINIO_ACCESS_KEY=minio-admin
-MINIO_SECRET_KEY=<MINIO_ROOT_PASSWORD from /opt/infra/.env>
-MINIO_BUCKET=bergeerd
-MINIO_USE_SSL=false
-MINIO_PUBLIC_URL=https://bergeerd.ir/bergeerd-minio   # proxied by Nginx
-CORS_ORIGINS=https://bergeerd.ir
-```
-
-### 3. Production `.env` for the Admin Panel
-
-```dotenv
-VITE_API_URL=https://bergeerd.ir/api
-```
-
-### 4. Nginx proxy rules (`/opt/bergeerd/nginx/default.conf`)
-
-Add these location blocks so the public domain serves the API, admin panel,
-and MinIO images over HTTPS:
-
-```nginx
-# Go API
-location /api/ {
-    proxy_pass http://bergeerd-api:8080;
-}
-
-# Admin panel (static build)
-location /admin/ {
-    proxy_pass http://bergeerd-admin:80/;
-}
-
-# MinIO images (public, anonymous read)
-location /bergeerd-minio/ {
-    proxy_pass http://minio:9000/bergeerd/;
-}
-```
-
-### 5. Website production `.env`
-
-```dotenv
-VITE_API_URL=https://bergeerd.ir/api
-```
-
-Rebuild the website (`npm run build`) and redeploy the `dist/` folder.
-
----
-
-## Project structure (backend)
-
-```
-bergeerd_api/
-├── cmd/api/main.go              # wiring, seeding, graceful shutdown
-├── internal/
-│   ├── auth/                   # JWT + bcrypt
-│   ├── config/                 # env loading (godotenv)
-│   ├── database/               # MongoDB connect
-│   ├── handler/                # HTTP handlers (auth + menu)
-│   ├── httputil/               # OK/Created/Error helpers, APIError
-│   ├── middleware/             # JWTAuth
-│   ├── models/                 # MenuItem, Admin, inputs
-│   ├── repository/             # Mongo CRUD (menu + admin)
-│   ├── seeder/                 # default menu data + image upload
-│   ├── server/                 # Gin router + CORS
-│   ├── service/                # business logic (menu + auth)
-│   ├── storage/                # MinIO upload/delete
-│   └── validation/             # field-level validation
-├── assets/placeholder.svg
-├── Dockerfile                  # multi-stage (build + alpine runtime)
-├── go.mod / go.sum
-└── .env.example
-```
-
-## Project structure (admin panel)
-
-```
-bergeerd_admin/
-├── src/
-│   ├── api.ts                  # fetch wrapper + token + all API calls
-│   ├── auth.tsx                # AuthProvider context + useAuth
-│   ├── main.tsx                # router + protected routes
-│   ├── types.ts                # Category, MenuItem, inputs
-│   ├── components/
-│   │   ├── Layout.tsx          # header + nav + logout
-│   │   └── ItemForm.tsx        # create/edit modal + image upload
-│   └── pages/
-│       ├── Login.tsx
-│       └── Dashboard.tsx       # category tabs + CRUD table
-└── .env.example
-```
-
----
-
-## Build verification
-
-All three projects build cleanly:
-
-```bash
-# Backend
-cd bergeerd_api && go build ./... && go vet ./...
-
-# Admin panel
-cd bergeerd_admin && npm install && npm run build
-
-# Website
-cd bergeerd_menu && npm install && npm run build
-```
-
----
-
-## Troubleshooting
-
-| Symptom | Fix |
-| ------- | --- |
-| `config: JWT_SECRET must be set` | Generate one: `openssl rand -base64 48` and put it in `.env` |
-| API can't connect to Mongo | Ensure the SSH tunnel (step 2) is running and `MONGO_URI=mongodb://localhost:27017` |
-| API can't connect to MinIO | Ensure the SSH tunnel is running and `MINIO_ENDPOINT=localhost:9000` |
-| Images don't show on website | Check `MINIO_PUBLIC_URL` points where the browser can reach MinIO; in dev that's `http://localhost:9000` |
-| Admin login `401` | Wrong username/password, or `SEED_ADMIN` was false when the DB was empty — delete the `admins` collection and restart |
-| Website shows static menu, not API data | `VITE_API_URL` is empty or the API is down — check the browser console for the `[menu] API unavailable` warning |
-| Seeded images are placeholders | `SEED_IMAGES_DIR` not set, or the path is wrong — set it to `bergeerd_menu/src/assets` and reseed |
-| Port 5173 / 8080 already in use | Change `PORT` in `bergeerd_api/.env` / Vite's port in `vite.config.ts` and update `VITE_API_URL`/`CORS_ORIGINS` |
-
----
+Production API environment (`/opt/bergeerd/api.env`): `APP_ENV=production`,
+`JWT_SECRET`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `SEED_MENU=false`,
+`MONGO_URI=mongodb://mongo:27017`, `MONGO_DATABASE=bergeerd`,
+`MINIO_ENDPOINT=minio:9000`, MinIO credentials, `MINIO_BUCKET=bergeerd`,
+`MINIO_PUBLIC_URL=https://bergeerd.ir/bergeerd-minio`,
+`CORS_ORIGINS=https://bergeerd.ir,https://www.bergeerd.ir`.
 
 ## Security notes
 
-- **Change the default admin password** (`ADMIN_PASSWORD`) before production.
-- **Use a strong `JWT_SECRET`** (48+ random bytes) in production.
-- MongoDB on the server runs **without auth**; it is only reachable on the
-  internal `data-net` Docker network (no published ports).
-- MinIO bucket `bergeerd` is created with an **anonymous-read** policy so the
-  public website can load images without credentials. Writes require the
-  MinIO root credentials kept in `/opt/infra/.env` on the server.
-- CORS is configurable via `CORS_ORIGINS`; in production set it to only
-  `https://bergeerd.ir`.
+- Use a strong `JWT_SECRET` and change the default admin password.
+- MongoDB runs without auth and is reachable only on the internal `data-net`.
+- The MinIO bucket allows anonymous reads (the website loads photos directly);
+  writes need the credentials in `/opt/infra/.env`.
+- Map embeds and links must be `https://` URLs (validated by the API).

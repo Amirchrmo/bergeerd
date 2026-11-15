@@ -1,155 +1,146 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { MenuItem, MenuItemInput } from "../types";
-import {
-  createMenuItem,
-  deleteMenuItem,
-  listMenuItems,
-  updateMenuItem,
-} from "../api";
+import { createMenuItem, deleteMenuItem, listMenuItems, updateMenuItem } from "../api";
+import { siteUrl, useBranch } from "../branch";
 import ItemForm from "../components/ItemForm";
+import {
+  ActiveBadge,
+  ConfirmDialog,
+  EmptyState,
+  Notice,
+  OrderBadge,
+  PageHeader,
+  PrimaryButton,
+  RowButton,
+  TableCard,
+} from "../components/ui";
 import { useCategories } from "../hooks/useCategories";
 
+/** Menu items of the selected branch. */
 export default function Dashboard() {
+  const { current: branch } = useBranch();
+  const branchId = branch!.id;
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeCat, setActiveCat] = useState<string>("all");
+  const [activeCat, setActiveCat] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null);
 
-  const { options: catOptions, titleBySlug, categories } = useCategories();
+  const { categories, options: catOptions, titleBySlug, error: catError } = useCategories(branchId);
 
-  const catOrderBySlug = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const c of categories) {
-      map[c.slug] = c.order;
-    }
-    // Fallback defaults keep tabs stable before categories load.
-    for (const c of catOptions) {
-      if (map[c.value] === undefined) {
-        map[c.value] = Number.MAX_SAFE_INTEGER;
-      }
-    }
-    return map;
-  }, [categories, catOptions]);
-
-  async function load() {
-    setLoading(true);
+  const load = useCallback(async () => {
     setError("");
     try {
-      const data = await listMenuItems();
-      setItems(data);
+      setItems(await listMenuItems(branchId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطا در بارگذاری");
     } finally {
       setLoading(false);
     }
-  }
+  }, [branchId]);
 
   useEffect(() => {
+    setLoading(true);
+    setItems([]);
+    setActiveCat("all");
     load();
-  }, []);
+  }, [load]);
 
-  // Sort by category priority, then item priority — same rule as the website.
+  // Category priority, then item priority — the order the website shows.
+  const catOrder = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of categories) map[c.slug] = c.order;
+    return map;
+  }, [categories]);
+
   const filtered = useMemo(() => {
-    const list =
-      activeCat === "all"
-        ? items
-        : items.filter((i) => i.category === activeCat);
-    return [...list].sort((a, b) => {
-      const ca = catOrderBySlug[a.category] ?? Number.MAX_SAFE_INTEGER;
-      const cb = catOrderBySlug[b.category] ?? Number.MAX_SAFE_INTEGER;
-      if (ca !== cb) return ca - cb;
-      if (a.order !== b.order) return a.order - b.order;
-      return a.name.localeCompare(b.name, "fa");
-    });
-  }, [items, activeCat, catOrderBySlug]);
+    const list = activeCat === "all" ? items : items.filter((i) => i.category === activeCat);
+    const rank = (slug: string) => catOrder[slug] ?? Number.MAX_SAFE_INTEGER;
+    return [...list].sort(
+      (a, b) =>
+        rank(a.category) - rank(b.category) ||
+        a.order - b.order ||
+        a.name.localeCompare(b.name, "fa"),
+    );
+  }, [items, activeCat, catOrder]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { all: items.length };
-    for (const c of catOptions) {
-      map[c.value] = items.filter((i) => i.category === c.value).length;
-    }
+    for (const i of items) map[i.category] = (map[i.category] ?? 0) + 1;
     return map;
-  }, [items, catOptions]);
+  }, [items]);
 
-  function openCreate() {
-    setEditing(null);
-    setShowForm(true);
-  }
-
-  function openEdit(item: MenuItem) {
-    setEditing(item);
-    setShowForm(true);
-  }
+  const nextOrderHint = useMemo(() => {
+    const inCat = activeCat === "all" ? items : items.filter((i) => i.category === activeCat);
+    return inCat.length === 0 ? 1 : Math.max(...inCat.map((i) => i.order)) + 1;
+  }, [items, activeCat]);
 
   async function handleSubmit(input: MenuItemInput) {
     if (editing) {
       await updateMenuItem(editing.id, input);
     } else {
-      await createMenuItem(input);
+      await createMenuItem(branchId, input);
     }
     setShowForm(false);
     setEditing(null);
     await load();
-    setActiveCat("all");
+  }
+
+  async function savePrice(item: MenuItem, price: string) {
+    const updated = await updateMenuItem(item.id, { price });
+    setItems((list) => list.map((i) => (i.id === item.id ? updated : i)));
   }
 
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
       await deleteMenuItem(deleteTarget.id);
-      setDeleteTarget(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطا در حذف");
+    } finally {
       setDeleteTarget(null);
     }
   }
 
-  const nextOrderHint = useMemo(() => {
-    const inCat =
-      activeCat === "all"
-        ? items
-        : items.filter((i) => i.category === activeCat);
-    if (inCat.length === 0) return 1;
-    return Math.max(...inCat.map((i) => i.order)) + 1;
-  }, [items, activeCat]);
+  const noCategories = catOptions.length === 0;
 
   return (
-    <div className="rtl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-charcoal">
-            مدیریت منو
-          </h1>
-          <p className="text-warm-gray/70 text-sm mt-1">
-            ترتیب نمایش با عدد کوچک‌تر = بالاتر در سایت. تغییرات بلافاصله اعمال
-            می‌شود.
-          </p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2.5 rounded-xl bg-brand text-white font-medium hover:bg-brand-dark transition-colors shadow-menu shrink-0"
-        >
-          + افزودن آیتم
-        </button>
-      </div>
+    <div>
+      <PageHeader
+        title={
+          <>
+            مدیریت منو <span className="text-brand">— {branch!.name}</span>
+          </>
+        }
+        subtitle={
+          <>
+            ترتیب نمایش با عدد کوچک‌تر = بالاتر در سایت. برای تغییر سریع قیمت روی آن بزنید.{" "}
+            <a href={siteUrl(branch!)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+              مشاهده در سایت ↗
+            </a>
+          </>
+        }
+        action={
+          <PrimaryButton
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            disabled={noCategories}
+          >
+            + افزودن آیتم
+          </PrimaryButton>
+        }
+      />
 
-      {error && (
-        <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-          {error}
-        </div>
-      )}
+      {(error || catError) && <Notice kind="error">{error || catError}</Notice>}
 
       <div className="flex gap-1 mb-5 border-b border-black/5 overflow-x-auto pb-px">
-        <Tab
-          active={activeCat === "all"}
-          onClick={() => setActiveCat("all")}
-          label="همه"
-          count={counts.all}
-        />
+        <Tab active={activeCat === "all"} onClick={() => setActiveCat("all")} label="همه" count={counts.all} />
         {catOptions.map((c) => (
           <Tab
             key={c.value}
@@ -163,89 +154,56 @@ export default function Dashboard() {
 
       {loading ? (
         <div className="text-center py-20 text-warm-gray/50">در حال بارگذاری...</div>
+      ) : noCategories ? (
+        <EmptyState>
+          این شعبه هنوز دسته‌ای ندارد. ابتدا در{" "}
+          <Link to="/categories" className="text-brand hover:underline">
+            دسته‌بندی‌ها
+          </Link>{" "}
+          دسته بسازید، یا هنگام ساخت شعبه منوی شعبهٔ دیگری را کپی کنید.
+        </EmptyState>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-warm-gray/50 bg-white rounded-2xl border border-black/5 shadow-card">
-          آیتمی وجود ندارد. روی «افزودن آیتم» بزنید.
-        </div>
+        <EmptyState>آیتمی وجود ندارد. روی «افزودن آیتم» بزنید.</EmptyState>
       ) : (
-        <div className="bg-white rounded-2xl border border-black/5 shadow-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gradient-to-l from-brand/5 to-transparent text-warm-gray">
-                <tr>
-                  <th className="text-right px-4 py-3.5 font-medium">تصویر</th>
-                  <th className="text-right px-4 py-3.5 font-medium">نام</th>
-                  <th className="text-right px-4 py-3.5 font-medium">دسته</th>
-                  <th className="text-right px-4 py-3.5 font-medium">قیمت</th>
-                  <th className="text-right px-4 py-3.5 font-medium">ترتیب</th>
-                  <th className="text-right px-4 py-3.5 font-medium">وضعیت</th>
-                  <th className="text-right px-4 py-3.5 font-medium">عملیات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5">
-                {filtered.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-brand/[0.03] transition-colors"
+        <TableCard head={["تصویر", "نام", "دسته", "قیمت", "ترتیب", "وضعیت", "عملیات"]}>
+          {filtered.map((item) => (
+            <tr key={item.id} className="hover:bg-brand/[0.03] transition-colors">
+              <td className="px-4 py-3">
+                <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/5 shadow-sm">
+                  {item.image_url && (
+                    <img src={item.image_url} alt={item.image_alt} className="w-full h-full object-cover" />
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-3 font-medium text-charcoal">{item.name}</td>
+              <td className="px-4 py-3 text-warm-gray/80">{titleBySlug(item.category)}</td>
+              <td className="px-4 py-3 text-charcoal tabular-nums">
+                <PriceCell item={item} onSave={savePrice} />
+              </td>
+              <td className="px-4 py-3">
+                <OrderBadge value={item.order} />
+              </td>
+              <td className="px-4 py-3">
+                <ActiveBadge active={item.is_active} />
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex gap-2">
+                  <RowButton
+                    onClick={() => {
+                      setEditing(item);
+                      setShowForm(true);
+                    }}
                   >
-                    <td className="px-4 py-3">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/5 shadow-sm">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.image_alt}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-charcoal">
-                      {item.name}
-                    </td>
-                    <td className="px-4 py-3 text-warm-gray/80">
-                      {titleBySlug(item.category)}
-                    </td>
-                    <td className="px-4 py-3 text-charcoal tabular-nums">
-                      {item.price} تومان
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex min-w-[2rem] justify-center px-2 py-0.5 rounded-lg bg-brand/10 text-brand text-xs font-medium tabular-nums">
-                        {item.order}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {item.is_active ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-100">
-                          فعال
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-black/5 text-warm-gray/70 border border-black/5">
-                          غیرفعال
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-black/10 text-warm-gray hover:border-brand/40 hover:text-brand hover:bg-brand/5 transition-colors"
-                        >
-                          ویرایش
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(item)}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          حذف
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    ویرایش
+                  </RowButton>
+                  <RowButton danger onClick={() => setDeleteTarget(item)}>
+                    حذف
+                  </RowButton>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </TableCard>
       )}
 
       {showForm && (
@@ -264,12 +222,68 @@ export default function Dashboard() {
       {deleteTarget && (
         <ConfirmDialog
           title="حذف آیتم"
-          message={`آیا از حذف «${deleteTarget.name}» مطمئن هستید؟ این عملیات قابل بازگشت نیست.`}
+          message={`آیا از حذف «${deleteTarget.name}» از منوی ${branch!.name} مطمئن هستید؟ این عملیات قابل بازگشت نیست.`}
           confirmLabel="حذف"
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** Price shown as text; click to edit in place, Enter saves, Esc cancels. */
+function PriceCell({ item, onSave }: { item: MenuItem; onSave: (item: MenuItem, price: string) => Promise<void> }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function commit() {
+    if (draft === null || saving) return;
+    const price = draft.trim();
+    if (!price || price === item.price) {
+      setDraft(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(item, price);
+      setDraft(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ذخیره نشد");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (draft === null) {
+    return (
+      <button
+        onClick={() => setDraft(item.price)}
+        title="ویرایش قیمت"
+        className="rounded-lg px-2 py-1 -mx-2 hover:bg-brand/5 hover:text-brand transition-colors whitespace-nowrap"
+      >
+        {item.price} تومان
+      </button>
+    );
+  }
+  return (
+    <div>
+      <input
+        autoFocus
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setDraft(null);
+        }}
+        aria-label={`قیمت ${item.name}`}
+        className="w-24 px-2 py-1 rounded-lg border border-brand focus:ring-2 focus:ring-brand/20 outline-none"
+      />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
@@ -289,52 +303,10 @@ function Tab({
     <button
       onClick={onClick}
       className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
-        active
-          ? "border-brand text-brand"
-          : "border-transparent text-warm-gray/70 hover:text-charcoal"
+        active ? "border-brand text-brand" : "border-transparent text-warm-gray/70 hover:text-charcoal"
       }`}
     >
-      {label}{" "}
-      <span className={`text-xs ${active ? "opacity-70" : "opacity-50"}`}>
-        ({count})
-      </span>
+      {label} <span className={`text-xs ${active ? "opacity-70" : "opacity-50"}`}>({count})</span>
     </button>
-  );
-}
-
-function ConfirmDialog({
-  title,
-  message,
-  confirmLabel,
-  onConfirm,
-  onCancel,
-}: {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-charcoal/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-menu w-full max-w-sm p-6 animate-fade-up">
-        <h3 className="text-lg font-bold text-charcoal mb-2">{title}</h3>
-        <p className="text-sm text-warm-gray mb-5 leading-relaxed">{message}</p>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl border border-black/10 text-warm-gray hover:bg-black/[0.03]"
-          >
-            انصراف
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 rounded-xl bg-red-600 text-white font-medium hover:bg-red-700"
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

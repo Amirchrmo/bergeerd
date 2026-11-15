@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -97,52 +96,23 @@ func (s *MinioStorage) UploadImage(ctx context.Context, r io.Reader, size int64,
 	}, nil
 }
 
-// DeleteObject removes an object from the bucket. Missing objects are ignored.
-func (s *MinioStorage) DeleteObject(ctx context.Context, object string) error {
-	if object == "" {
+// DeleteByURL removes the object behind a public URL produced by UploadImage.
+// URLs that do not point into our bucket (e.g. a pasted external link) are
+// ignored, as are objects that are already gone.
+func (s *MinioStorage) DeleteByURL(ctx context.Context, rawURL string) error {
+	prefix := s.publicURL + "/" + s.bucket + "/"
+	object, ok := strings.CutPrefix(rawURL, prefix)
+	if !ok || object == "" {
 		return nil
 	}
-	if err := s.client.RemoveObject(ctx, s.bucket, object, minio.RemoveObjectOptions{}); err != nil {
-		// Ignore "no such key" so deleting an item whose image was already gone works.
-		if !strings.Contains(strings.ToLower(err.Error()), "no such key") {
-			return fmt.Errorf("minio remove object: %w", err)
-		}
+	err := s.client.RemoveObject(ctx, s.bucket, object, minio.RemoveObjectOptions{})
+	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
+		return fmt.Errorf("minio remove object: %w", err)
 	}
 	return nil
-}
-
-// ObjectFromURL extracts the object key from a public URL produced by UploadImage.
-func (s *MinioStorage) ObjectFromURL(rawURL string) string {
-	if rawURL == "" {
-		return ""
-	}
-	// Prefer stripping the known public base + bucket prefix
-	// (e.g. https://bergeerd.ir/bergeerd-minio/bergeerd/menu/…).
-	prefix := s.publicURL + "/" + s.bucket + "/"
-	if strings.HasPrefix(rawURL, prefix) {
-		return strings.TrimPrefix(rawURL, prefix)
-	}
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	path := strings.TrimPrefix(u.Path, "/")
-	// Path may be "bergeerd/menu/…" (direct MinIO) or
-	// "bergeerd-minio/bergeerd/menu/…" (proxied public URL).
-	marker := s.bucket + "/"
-	if i := strings.Index(path, marker); i >= 0 {
-		return path[i+len(marker):]
-	}
-	return ""
 }
 
 // publicURLFor builds the public URL for an object key.
 func (s *MinioStorage) publicURLFor(object string) string {
 	return fmt.Sprintf("%s/%s/%s", s.publicURL, s.bucket, object)
 }
-
-// Bucket returns the configured bucket name.
-func (s *MinioStorage) Bucket() string { return s.bucket }
-
-// PublicURL returns the configured public base URL (no trailing slash).
-func (s *MinioStorage) PublicURL() string { return s.publicURL }

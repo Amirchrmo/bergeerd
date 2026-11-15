@@ -9,9 +9,9 @@ import (
 
 // JWTService issues and validates JWT tokens for the admin panel.
 type JWTService struct {
-	secret    []byte
-	expHours  int
-	issuer    string
+	secret   []byte
+	expHours int
+	issuer   string
 }
 
 // NewJWTService creates a JWT service with the given secret and expiry.

@@ -3,9 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"bergeerd-api/internal/auth"
 	"bergeerd-api/internal/models"
@@ -62,12 +59,6 @@ func (s *AuthService) SeedAdminIfEmpty(ctx context.Context, username, password s
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	return s.adminRepo.Create(ctx, &models.Admin{
-		ID:           primitive.NewObjectID(),
-		Username:     username,
-		PasswordHash: hash,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	})
+	return s.adminRepo.Create(ctx, &models.Admin{Username: username, PasswordHash: hash})
+
 }
