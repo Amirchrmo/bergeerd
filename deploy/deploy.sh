@@ -36,6 +36,14 @@ deploy_api() {
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp/bergeerd-api" ./cmd/api
   cp Dockerfile.deploy "$tmp/Dockerfile"
 
+  # The API migrates the database on start, so take a backup first (last 10 kept).
+  local stamp
+  stamp=$(date +%Y%m%d-%H%M%S)
+  echo "deploy api: backing up the database to $REMOTE/backups/bergeerd-$stamp.archive"
+  "${SSH[@]}" "mkdir -p $REMOTE/backups && umask 077 \
+    && docker exec mongo mongodump --quiet --db bergeerd --archive > $REMOTE/backups/bergeerd-$stamp.archive \
+    && ls -1 $REMOTE/backups/*.archive | sort | head -n -10 | xargs -r rm -f"
+
   echo "deploy api: uploading $(version) (previous binary kept as bergeerd-api.prev)"
   "${SSH[@]}" "cd $REMOTE/api && { [ ! -f bergeerd-api ] || cp bergeerd-api bergeerd-api.prev; }"
   rsync -az -e "$RSH" "$tmp/bergeerd-api" "$tmp/Dockerfile" "$HOST:$REMOTE/api/"
@@ -75,7 +83,10 @@ deploy_menu() {
     && ls -1d $REMOTE/releases/* | sort | head -n -10 | xargs -r rm -rf"
 
   echo "deploy menu: uploading $ver"
-  rsync -az --delete --exclude '/admin/' -e "$RSH" dist/ "$HOST:$REMOTE/web/"
+  # Hashed assets go first and are never deleted: the CDN may serve an older
+  # index.html for a while, and the files it references must still exist.
+  rsync -az -e "$RSH" dist/assets/ "$HOST:$REMOTE/web/assets/"
+  rsync -az --delete --exclude '/admin/' --exclude '/assets/' -e "$RSH" dist/ "$HOST:$REMOTE/web/"
 
   local code live
   code=$(http_code "$SITE/")

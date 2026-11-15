@@ -152,7 +152,7 @@ Branch pages need no nginx change: any unknown path falls back to the
 website's `index.html`, which reads the branch from the URL.
 
 ```bash
-deploy/deploy.sh api      # 1st: Go binary → /opt/bergeerd/api, rebuild container, health check
+deploy/deploy.sh api      # 1st: DB backup → backups/, Go binary → /opt/bergeerd/api, restart, health check
 deploy/deploy.sh admin    # 2nd: admin panel → web/admin/
 deploy/deploy.sh menu     # 3rd: website → web/ (snapshots the live site first)
 deploy/rollback.sh        # restore the previous website snapshot (--list to choose)
