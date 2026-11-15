@@ -1,0 +1,110 @@
+/* ============================================================
+   Paper — a light, printed-menu design (first used by Tehran).
+   Colour tokens override the site defaults (index.css) while the
+   theme is mounted, via <html data-theme="paper">.
+   Plain CSS only: Tailwind @layer rules must live in index.css.
+   ============================================================ */
+
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --background: 40 33% 93%;
+  --foreground: 24 14% 10%;
+  --card: 42 40% 97%;
+  --card-foreground: 24 14% 10%;
+  --primary: 359 93% 43%;
+  --primary-foreground: 40 33% 96%;
+  --muted: 36 20% 86%;
+  --muted-foreground: 25 8% 36%;
+  --border: 30 14% 78%;
+  --shadow-card: 0 18px 40px -24px hsl(24 30% 20% / 0.35);
+}
+
+.paper-display {
+  font-family: "Lalezar", "Vazirmatn", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Red-and-cream awning stripes (height set where used) and the scalloped
+   edge under each red stripe. */
+.paper-awning {
+  background: repeating-linear-gradient(
+    90deg,
+    hsl(var(--primary)) 0 1.5rem,
+    hsl(var(--card)) 1.5rem 3rem
+  );
+}
+.paper-awning-edge {
+  height: 0.75rem;
+  background: radial-gradient(circle at 0.75rem 0, hsl(var(--primary)) 0.75rem, transparent 0.78rem)
+    0 0 / 3rem 0.75rem repeat-x;
+}
+
+/* Dotted leader between a dish name and its price. */
+.paper-leader {
+  flex: 1 1 1.5rem;
+  min-width: 1.5rem;
+  margin-inline: 0.5rem;
+  border-bottom: 2px dotted hsl(var(--foreground) / 0.28);
+  transform: translateY(-0.35em);
+}
+
+/* Receipt-style dashed rule. */
+.paper-dashed {
+  border-bottom: 1.5px dashed hsl(var(--foreground) / 0.18);
+}
+
+.paper-stamp {
+  transform: rotate(-4deg);
+}
+
+@keyframes paper-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes paper-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes paper-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.paper-rise {
+  animation: paper-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--rise-delay, 0ms);
+}
+.paper-backdrop {
+  animation: paper-fade-in 0.2s ease-out both;
+}
+.paper-sheet {
+  animation: paper-sheet-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (min-width: 768px) {
+  .paper-sheet {
+    animation-name: paper-rise;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-rise,
+  .paper-backdrop,
+  .paper-sheet {
+    animation: none;
+  }
+}

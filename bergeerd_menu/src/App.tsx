@@ -1,30 +1,46 @@
-import { useState } from "react";
-import { MotionConfig } from "motion/react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import Index from "./pages/Index";
-import Loader from "./components/Loader";
+import Splash from "@/components/Splash";
+import StatusScreen from "@/components/StatusScreen";
+import { BranchNotFoundError, branchSlugFromPath, useBranchMenu } from "@/core/menu";
+import type { Branch } from "@/core/types";
+import { themeFor } from "@/themes";
 
 const queryClient = new QueryClient();
+const BASE_TITLE = document.title;
 
-const App = () => {
-  // The hero's entrance starts as the loader's curtain lifts.
-  const [introDone, setIntroDone] = useState(false);
+/** Each branch is its own entry point (its QR code), so no client routing. */
+const slug = branchSlugFromPath(window.location.pathname);
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <MotionConfig reducedMotion="user">
-          <Toaster />
-          <Sonner />
-          <Loader onDone={() => setIntroDone(true)} />
-          <Index ready={introDone} />
-        </MotionConfig>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    {slug === null ? <StatusScreen kind="not-found" /> : <BranchPage slug={slug} />}
+  </QueryClientProvider>
+);
+
+/** Loads one branch and renders it with the design the branch uses. */
+function BranchPage({ slug }: { slug: string | undefined }) {
+  const { data, error, refetch, isFetching } = useBranchMenu(slug);
+  useBranchTitle(data?.branch);
+
+  if (data) {
+    const Theme = themeFor(data.branch.theme);
+    return (
+      <Suspense fallback={<Splash />}>
+        <Theme menu={data} />
+      </Suspense>
+    );
+  }
+  if (error instanceof BranchNotFoundError) return <StatusScreen kind="not-found" />;
+  if (error) return <StatusScreen kind="error" onRetry={() => refetch()} busy={isFetching} />;
+  return <Splash />;
+}
+
+function useBranchTitle(branch: Branch | undefined) {
+  useEffect(() => {
+    document.title =
+      branch && !branch.isDefault ? `برگرد ${branch.name} - یه گرد خوشمزه` : BASE_TITLE;
+  }, [branch]);
+}
 
 export default App;
