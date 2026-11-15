@@ -2,8 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -13,150 +11,76 @@ import (
 	"bergeerd-api/internal/models"
 )
 
-// CategoryRepo persists dynamic menu categories in MongoDB.
+// CategoryRepo persists menu categories. Every query is scoped to a branch.
 type CategoryRepo struct {
-	col *mongo.Collection
+	docs[models.Category]
 }
 
 // NewCategoryRepo returns a repository backed by the given database.
 func NewCategoryRepo(db *mongo.Database) *CategoryRepo {
-	return &CategoryRepo{col: db.Collection("categories")}
+	return &CategoryRepo{docs[models.Category]{db.Collection("categories")}}
 }
 
-// EnsureIndexes creates a unique index on slug. Safe to call repeatedly.
+// EnsureIndexes makes slugs unique within a branch.
 func (r *CategoryRepo) EnsureIndexes(ctx context.Context) error {
 	_, err := r.col.Indexes().CreateMany(ctx, []mongo.IndexModel{
-		{Keys: bson.D{{Key: "slug", Value: 1}}, Options: options.Index().SetUnique(true)},
-		{Keys: bson.D{{Key: "order", Value: 1}, {Key: "_id", Value: 1}}},
+		{
+			Keys:    bson.D{{Key: "branch_id", Value: 1}, {Key: "slug", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+		{Keys: bson.D{{Key: "branch_id", Value: 1}, {Key: "order", Value: 1}}},
 	})
 	return err
 }
 
-// List returns all categories ordered by order then insertion.
-func (r *CategoryRepo) List(ctx context.Context) ([]models.CategoryDoc, error) {
-	cur, err := r.col.Find(ctx, bson.M{},
-		options.Find().SetSort(bson.D{
-			{Key: "order", Value: 1},
-			{Key: "_id", Value: 1},
-		}))
-	if err != nil {
-		return nil, err
-	}
-	defer cur.Close(ctx)
-
-	var cats []models.CategoryDoc
-	if err := cur.All(ctx, &cats); err != nil {
-		return nil, err
-	}
-	if cats == nil {
-		cats = []models.CategoryDoc{}
-	}
-	return cats, nil
+// List returns a branch's categories in display order.
+func (r *CategoryRepo) List(ctx context.Context, branchID primitive.ObjectID) ([]models.Category, error) {
+	return r.find(ctx, bson.M{"branch_id": branchID},
+		bson.D{{Key: "order", Value: 1}, {Key: "_id", Value: 1}})
 }
 
-// Get returns a single category by its hex ID.
-func (r *CategoryRepo) Get(ctx context.Context, id string) (models.CategoryDoc, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return models.CategoryDoc{}, ErrNotFound
-	}
-	var cat models.CategoryDoc
-	if err := r.col.FindOne(ctx, bson.M{"_id": oid}).Decode(&cat); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return models.CategoryDoc{}, ErrNotFound
-		}
-		return models.CategoryDoc{}, err
-	}
-	return cat, nil
+// Get returns a category by hex id.
+func (r *CategoryRepo) Get(ctx context.Context, id string) (models.Category, error) {
+	return r.byID(ctx, id)
 }
 
-// FindBySlug returns a category by its slug, if it exists.
-func (r *CategoryRepo) FindBySlug(ctx context.Context, slug string) (models.CategoryDoc, error) {
-	var cat models.CategoryDoc
-	if err := r.col.FindOne(ctx, bson.M{"slug": slug}).Decode(&cat); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return models.CategoryDoc{}, ErrNotFound
-		}
-		return models.CategoryDoc{}, err
-	}
-	return cat, nil
+// FindBySlug returns the category with the given slug in a branch.
+func (r *CategoryRepo) FindBySlug(ctx context.Context, branchID primitive.ObjectID, slug string) (models.Category, error) {
+	return r.findOne(ctx, bson.M{"branch_id": branchID, "slug": slug})
 }
 
 // Create inserts a new category.
-func (r *CategoryRepo) Create(ctx context.Context, cat *models.CategoryDoc) error {
-	if cat.ID.IsZero() {
-		cat.ID = primitive.NewObjectID()
-	}
-	now := time.Now().UTC()
-	if cat.CreatedAt.IsZero() {
-		cat.CreatedAt = now
-	}
-	cat.UpdatedAt = now
-	if _, err := r.col.InsertOne(ctx, cat); err != nil {
-		return err
-	}
-	return nil
+func (r *CategoryRepo) Create(ctx context.Context, cat *models.Category) error {
+	stamp(&cat.ID, &cat.CreatedAt, &cat.UpdatedAt)
+	_, err := r.col.InsertOne(ctx, cat)
+	return err
 }
 
-// Update applies a partial update (bson.M) to the category with the given id.
-func (r *CategoryRepo) Update(ctx context.Context, id string, update bson.M) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return ErrNotFound
+// InsertMany inserts several categories, filling in ids and timestamps.
+func (r *CategoryRepo) InsertMany(ctx context.Context, cats []models.Category) error {
+	for i := range cats {
+		stamp(&cats[i].ID, &cats[i].CreatedAt, &cats[i].UpdatedAt)
 	}
-	if set, ok := update["$set"].(bson.M); ok {
-		set["updated_at"] = time.Now().UTC()
-	} else {
-		update["$set"] = bson.M{"updated_at": time.Now().UTC()}
-	}
-	res, err := r.col.UpdateByID(ctx, oid, update)
-	if err != nil {
-		return err
-	}
-	if res.MatchedCount == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return r.insertMany(ctx, cats)
+}
+
+// Update sets the given fields on a category.
+func (r *CategoryRepo) Update(ctx context.Context, id string, set bson.M) error {
+	return r.setByID(ctx, id, set)
 }
 
 // Delete removes a category by id.
 func (r *CategoryRepo) Delete(ctx context.Context, id string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return ErrNotFound
-	}
-	res, err := r.col.DeleteOne(ctx, bson.M{"_id": oid})
-	if err != nil {
-		return err
-	}
-	if res.DeletedCount == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return r.deleteByID(ctx, id)
 }
 
-// Count returns the total number of categories (used for seeding).
-func (r *CategoryRepo) Count(ctx context.Context) (int64, error) {
-	return r.col.CountDocuments(ctx, bson.M{})
+// Count returns the number of categories in a branch.
+func (r *CategoryRepo) Count(ctx context.Context, branchID primitive.ObjectID) (int64, error) {
+	return r.count(ctx, bson.M{"branch_id": branchID})
 }
 
-// InsertMany inserts several categories at once (used for seeding).
-func (r *CategoryRepo) InsertMany(ctx context.Context, cats []models.CategoryDoc) error {
-	if len(cats) == 0 {
-		return nil
-	}
-	docs := make([]any, len(cats))
-	now := time.Now().UTC()
-	for i := range cats {
-		if cats[i].ID.IsZero() {
-			cats[i].ID = primitive.NewObjectID()
-		}
-		if cats[i].CreatedAt.IsZero() {
-			cats[i].CreatedAt = now
-		}
-		cats[i].UpdatedAt = now
-		docs[i] = cats[i]
-	}
-	_, err := r.col.InsertMany(ctx, docs)
+// DeleteByBranch removes all categories of a branch.
+func (r *CategoryRepo) DeleteByBranch(ctx context.Context, branchID primitive.ObjectID) error {
+	_, err := r.col.DeleteMany(ctx, bson.M{"branch_id": branchID})
 	return err
 }

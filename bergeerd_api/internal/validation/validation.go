@@ -2,21 +2,14 @@ package validation
 
 import (
 	"errors"
+	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"bergeerd-api/internal/models"
 )
 
-// ValidCategories is the set of allowed category values.
-var ValidCategories = []models.Category{
-	models.CategoryBurgers,
-	models.CategorySandwiches,
-	models.CategoryFries,
-	models.CategoryToppings,
-	models.CategoryDrinks,
-}
-
-// ErrValidation aggregates multiple field validation errors.
+// ErrValidation aggregates field validation errors.
 type ErrValidation struct {
 	Errors map[string]string
 }
@@ -32,7 +25,6 @@ func (e *ErrValidation) Error() string {
 	return strings.Join(parts, "; ")
 }
 
-// add records a field error.
 func (e *ErrValidation) add(field, msg string) {
 	if e.Errors == nil {
 		e.Errors = map[string]string{}
@@ -40,83 +32,41 @@ func (e *ErrValidation) add(field, msg string) {
 	e.Errors[field] = msg
 }
 
-// Has reports whether any validation errors were recorded.
-func (e *ErrValidation) Has() bool { return len(e.Errors) > 0 }
-
-// IsValidCategory reports whether c is a known category.
-func IsValidCategory(c models.Category) bool {
-	for _, v := range ValidCategories {
-		if v == c {
-			return true
-		}
+// result returns the aggregated error, or nil when nothing was recorded.
+func (e *ErrValidation) result() error {
+	if len(e.Errors) == 0 {
+		return nil
 	}
-	return false
+	return e
 }
 
-// ValidateMenuItemInput validates a create/update payload. For create,
-// requireName should be true so the name field is mandatory.
-func ValidateMenuItemInput(in models.MenuItemInput, requireName bool) error {
-	v := &ErrValidation{}
-
-	if in.Name != nil {
-		name := strings.TrimSpace(*in.Name)
-		if name == "" {
-			v.add("name", "must not be empty")
-		} else if len(name) > 120 {
-			v.add("name", "must be at most 120 characters")
+// required validates a field that must be sent on create and may never be
+// blank; lengths are counted in characters, not bytes (Persian text).
+func (e *ErrValidation) required(field string, p *string, max int, create bool) {
+	if p == nil {
+		if create {
+			e.add(field, "is required")
 		}
-	} else if requireName {
-		v.add("name", "is required")
+		return
 	}
+	if strings.TrimSpace(*p) == "" {
+		e.add(field, "must not be empty")
+		return
+	}
+	e.optional(field, p, max)
+}
 
-	if in.Description != nil && len(*in.Description) > 600 {
-		v.add("description", "must be at most 600 characters")
+// optional validates the length of a field that may be blank.
+func (e *ErrValidation) optional(field string, p *string, max int) {
+	if p != nil && utf8.RuneCountInString(strings.TrimSpace(*p)) > max {
+		e.add(field, "is too long")
 	}
+}
 
-	if in.Price != nil {
-		price := strings.TrimSpace(*in.Price)
-		if price == "" {
-			v.add("price", "must not be empty")
-		} else if len(price) > 40 {
-			v.add("price", "must be at most 40 characters")
-		}
-	} else if requireName {
-		v.add("price", "is required")
+func (e *ErrValidation) order(p *int) {
+	if p != nil && *p < 0 {
+		e.add("order", "must be zero or positive")
 	}
-
-	if in.Category != nil {
-		cat := strings.TrimSpace(*in.Category)
-		if cat == "" {
-			v.add("category", "must not be empty")
-		}
-		// NOTE: category slug existence is validated dynamically against the
-		// `categories` collection in MenuService.validateCategoryDynamic, so we
-		// no longer reject unknown slugs here. This lets admins create items
-		// for newly-added categories.
-	} else if requireName {
-		v.add("category", "is required")
-	}
-
-	if in.ImageURL != nil {
-		if strings.TrimSpace(*in.ImageURL) == "" {
-			v.add("image_url", "must not be empty when provided")
-		} else if len(*in.ImageURL) > 500 {
-			v.add("image_url", "must be at most 500 characters")
-		}
-	}
-
-	if in.ImageAlt != nil && len(*in.ImageAlt) > 200 {
-		v.add("image_alt", "must be at most 200 characters")
-	}
-
-	if in.Order != nil && *in.Order < 0 {
-		v.add("order", "must be zero or positive")
-	}
-
-	if v.Has() {
-		return v
-	}
-	return nil
 }
 
 // AsValidationError returns the error as a *ErrValidation if it is one, else nil.
@@ -133,51 +83,103 @@ func NewFieldError(field, msg string) *ErrValidation {
 	return &ErrValidation{Errors: map[string]string{field: msg}}
 }
 
-// ValidateCategoryInput validates a create/update category payload. For create
-// (requireFields=true), slug and title are mandatory.
-func ValidateCategoryInput(in models.CategoryInput, requireFields bool) error {
-	v := &ErrValidation{}
+var slugRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
-	if in.Slug != nil {
-		slug := strings.TrimSpace(*in.Slug)
-		if slug == "" {
-			v.add("slug", "must not be empty")
-		} else if len(slug) > 60 {
-			v.add("slug", "must be at most 60 characters")
-		} else if !isValidSlug(slug) {
-			v.add("slug", "must contain only lowercase letters, numbers, and hyphens")
-		}
-	} else if requireFields {
-		v.add("slug", "is required")
-	}
+// isSlug reports whether s is a lowercase kebab-case slug, e.g. "burgers".
+func isSlug(s string) bool { return slugRe.MatchString(s) }
 
-	if in.Title != nil {
-		title := strings.TrimSpace(*in.Title)
-		if title == "" {
-			v.add("title", "must not be empty")
-		} else if len(title) > 120 {
-			v.add("title", "must be at most 120 characters")
-		}
-	} else if requireFields {
-		v.add("title", "is required")
-	}
-
-	if in.Order != nil && *in.Order < 0 {
-		v.add("order", "must be zero or positive")
-	}
-
-	if v.Has() {
-		return v
-	}
-	return nil
+// reservedBranchSlugs cannot be branch URLs: the server routes them elsewhere
+// (/admin, /api, ...) or the website uses them ("default" = root branch).
+var reservedBranchSlugs = map[string]bool{
+	"admin": true, "api": true, "assets": true, "health": true,
+	"bergeerd-minio": true, "default": true,
 }
 
-// isValidSlug reports whether s is a lowercase kebab-case slug, e.g. "burgers".
-func isValidSlug(s string) bool {
-	for _, r := range s {
-		if !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' {
-			return false
+var instagramRe = regexp.MustCompile(`^[A-Za-z0-9._]{1,60}$`)
+
+// ValidateBranchInput validates a branch payload; create requires slug and name.
+func ValidateBranchInput(in models.BranchInput, create bool) error {
+	v := &ErrValidation{}
+
+	if in.Slug != nil || create {
+		slug := ""
+		if in.Slug != nil {
+			slug = strings.TrimSpace(*in.Slug)
+		}
+		switch {
+		case slug == "":
+			v.add("slug", "is required")
+		case len(slug) < 2 || len(slug) > 40 || !isSlug(slug):
+			v.add("slug", "must be 2-40 lowercase letters, numbers and hyphens")
+		case reservedBranchSlugs[slug]:
+			v.add("slug", "this address is reserved by the website")
 		}
 	}
-	return len(s) > 0
+	v.required("name", in.Name, 80, create)
+	if in.Theme != nil {
+		if t := strings.TrimSpace(*in.Theme); t != "" && (!isSlug(t) || len(t) > 30) {
+			v.add("theme", "must be a theme key such as ember or paper")
+		}
+	}
+	v.order(in.Order)
+	v.optional("address", in.Address, 200)
+	v.optional("phone", in.Phone, 40)
+	v.optional("hours", in.Hours, 120)
+	for field, p := range map[string]*string{"map_url": in.MapURL, "map_embed_url": in.MapEmbedURL} {
+		if p == nil {
+			continue
+		}
+		u := strings.TrimSpace(*p)
+		if u != "" && (!strings.HasPrefix(u, "https://") || len(u) > 1000) {
+			v.add(field, "must be an https:// link")
+		}
+	}
+	if in.Instagram != nil {
+		if h := strings.TrimPrefix(strings.TrimSpace(*in.Instagram), "@"); h != "" && !instagramRe.MatchString(h) {
+			v.add("instagram", "must be an Instagram username")
+		}
+	}
+	return v.result()
+}
+
+// ValidateCategoryInput validates a category payload; create requires slug and title.
+func ValidateCategoryInput(in models.CategoryInput, create bool) error {
+	v := &ErrValidation{}
+	if in.Slug != nil || create {
+		slug := ""
+		if in.Slug != nil {
+			slug = strings.TrimSpace(*in.Slug)
+		}
+		switch {
+		case slug == "":
+			v.add("slug", "is required")
+		case len(slug) > 60 || !isSlug(slug):
+			v.add("slug", "must contain only lowercase letters, numbers, and hyphens")
+		}
+	}
+	v.required("title", in.Title, 120, create)
+	v.order(in.Order)
+	return v.result()
+}
+
+// ValidateMenuItemInput validates a menu item payload; create requires name,
+// price and category. Whether the category exists in the item's branch is
+// checked by the service.
+func ValidateMenuItemInput(in models.MenuItemInput, create bool) error {
+	v := &ErrValidation{}
+	v.required("name", in.Name, 120, create)
+	v.optional("description", in.Description, 600)
+	v.required("price", in.Price, 40, create)
+	v.required("category", in.Category, 60, create)
+	v.optional("image_alt", in.ImageAlt, 200)
+	if in.ImageURL != nil {
+		u := strings.TrimSpace(*in.ImageURL)
+		if u == "" {
+			v.add("image_url", "must not be empty when provided")
+		} else if len(u) > 500 {
+			v.add("image_url", "is too long")
+		}
+	}
+	v.order(in.Order)
+	return v.result()
 }

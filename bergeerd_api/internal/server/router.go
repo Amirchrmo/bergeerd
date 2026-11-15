@@ -8,16 +8,17 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	"bergeerd-api/internal/auth"
 	"bergeerd-api/internal/config"
 	"bergeerd-api/internal/handler"
 	"bergeerd-api/internal/middleware"
-	"bergeerd-api/internal/auth"
 )
 
 // New builds the configured Gin engine with all routes registered.
 func New(
 	cfg *config.Config,
 	authH *handler.AuthHandler,
+	branchH *handler.BranchHandler,
 	menuH *handler.MenuHandler,
 	categoryH *handler.CategoryHandler,
 	jwtSvc *auth.JWTService,
@@ -47,38 +48,35 @@ func New(
 
 	api := r.Group("/api")
 	{
-		// Public read endpoints (no auth) — used by the website.
-		// These return dynamic data that changes whenever the admin edits
-		// items/categories, so we send explicit no-cache headers to prevent
-		// browsers (and any CDN/proxy) from serving a stale copy on refetch.
-		// Without this, the website can show outdated ordering even after the
-		// admin saves, because fetch() may return a cached 200 without hitting
-		// the network.
-		pub := api.Group("")
-		pub.Use(noCacheMiddleware)
+		// Public menus for the website. They change whenever the admin saves,
+		// so browsers and the CDN must never serve a stale copy.
+		pub := api.Group("", noCacheMiddleware)
 		{
-			pub.GET("/menu", menuH.ListPublic)
-			pub.GET("/categories", categoryH.ListPublic)
+			pub.GET("/menu", menuH.DefaultMenu) // default branch; shape kept for old clients
+			pub.GET("/branches/:slug/menu", menuH.BranchMenu)
 		}
 
-		// Auth endpoints.
-		authGrp := api.Group("/auth")
-		{
-			authGrp.POST("/login", authH.Login)
-		}
+		api.POST("/auth/login", authH.Login)
 
-		// Admin endpoints (JWT-protected).
-		admin := api.Group("/admin")
-		admin.Use(middleware.JWTAuth(jwtSvc))
+		// Admin endpoints (JWT-protected). Listing and creating take the
+		// branch via ?branch_id= / "branch_id" and default to the default
+		// branch, so admin panels that predate branches keep working.
+		admin := api.Group("/admin", middleware.JWTAuth(jwtSvc))
 		{
-			admin.GET("/menu", menuH.ListAll)
+			admin.GET("/branches", branchH.List)
+			admin.GET("/branches/:id", branchH.Get)
+			admin.POST("/branches", branchH.Create)
+			admin.PUT("/branches/:id", branchH.Update)
+			admin.DELETE("/branches/:id", branchH.Delete)
+
+			admin.GET("/menu", menuH.List)
 			admin.GET("/menu/:id", menuH.Get)
 			admin.POST("/menu", menuH.Create)
 			admin.PUT("/menu/:id", menuH.Update)
 			admin.DELETE("/menu/:id", menuH.Delete)
 			admin.POST("/upload", menuH.UploadImage)
 
-			admin.GET("/categories", categoryH.ListAll)
+			admin.GET("/categories", categoryH.List)
 			admin.GET("/categories/:id", categoryH.Get)
 			admin.POST("/categories", categoryH.Create)
 			admin.PUT("/categories/:id", categoryH.Update)
@@ -89,10 +87,7 @@ func New(
 	return r
 }
 
-// noCacheMiddleware sets strict no-cache headers so browsers and proxies never
-// serve a stale copy of dynamic public data (menu items/categories). The admin
-// can change ordering/content at any time, and the website must always see the
-// latest state on refetch.
+// noCacheMiddleware stops browsers and proxies from caching public menus.
 func noCacheMiddleware(c *gin.Context) {
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	c.Header("Pragma", "no-cache")

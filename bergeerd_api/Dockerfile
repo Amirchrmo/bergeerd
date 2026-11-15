@@ -15,7 +15,6 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /out/bergeerd-api /app/bergeerd-api
-COPY assets/placeholder.svg /app/assets/placeholder.svg
 
 ENV PORT=8080
 EXPOSE 8080

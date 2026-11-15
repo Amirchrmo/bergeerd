@@ -14,7 +14,6 @@ import (
 type Config struct {
 	AppEnv         string
 	Port           string
-	LogLevel       string
 	JWTSecret      string
 	JWTExpHours    int
 	SeedAdmin      bool
@@ -41,7 +40,6 @@ func Load() *Config {
 	cfg := &Config{
 		AppEnv:         getEnv("APP_ENV", "development"),
 		Port:           getEnv("PORT", "8080"),
-		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		JWTSecret:      getEnv("JWT_SECRET", ""),
 		JWTExpHours:    getEnvInt("JWT_EXPIRES_HOURS", 24),
 		SeedAdmin:      getEnvBool("SEED_ADMIN", true),
@@ -111,7 +109,7 @@ func parseCSV(s string) []string {
 	return out
 }
 
-// DSN returns the MongoDB database name for convenience.
+// String summarises the configuration for the startup log (no secrets).
 func (c *Config) String() string {
 	return fmt.Sprintf("env=%s port=%s db=%s minio=%s bucket=%s",
 		c.AppEnv, c.Port, c.MongoDatabase, c.MinioEndpoint, c.MinioBucket)

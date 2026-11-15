@@ -3,24 +3,19 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
-	"sync"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"bergeerd-api/internal/models"
 	"bergeerd-api/internal/repository"
 	"bergeerd-api/internal/validation"
 )
 
-// CategoryService orchestrates dynamic category CRUD and provides a cached
-// lookup used when validating menu items.
+// CategoryService manages a branch's menu categories.
 type CategoryService struct {
 	repo *repository.CategoryRepo
-
-	mu       sync.RWMutex
-	cache    map[string]struct{} // set of known category slugs
-	cacheTTL int64               // unix seconds when cache expires (0 = empty)
 }
 
 // NewCategoryService wires the service with its repository.
@@ -28,132 +23,62 @@ func NewCategoryService(repo *repository.CategoryRepo) *CategoryService {
 	return &CategoryService{repo: repo}
 }
 
-// refreshCache loads the current set of category slugs into memory. It is
-// called lazily (and after mutations) so menu-item validation never hits the
-// DB on the hot path unless the cache is cold/expired.
-func (s *CategoryService) refreshCache(ctx context.Context) error {
-	cats, err := s.repo.List(ctx)
-	if err != nil {
-		return err
-	}
-	set := make(map[string]struct{}, len(cats))
-	for _, c := range cats {
-		set[strings.ToLower(c.Slug)] = struct{}{}
-	}
-	s.mu.Lock()
-	s.cache = set
-	s.mu.Unlock()
-	return nil
-}
+var errDuplicateCategory = validation.NewFieldError("slug", "a category with this slug already exists in this branch")
 
-// IsValidSlug reports whether a category slug is known. If the cache is empty
-// it is (re)built from the database. Unknown slugs are rejected unless the DB
-// contains zero categories (e.g. during seeding before categories exist), in
-// which case we allow any non-empty slug as a safety valve.
-func (s *CategoryService) IsValidSlug(ctx context.Context, slug string) (bool, error) {
-	slug = strings.ToLower(strings.TrimSpace(slug))
-	if slug == "" {
-		return false, nil
-	}
-	s.mu.RLock()
-	if len(s.cache) > 0 {
-		_, ok := s.cache[slug]
-		s.mu.RUnlock()
-		return ok, nil
-	}
-	s.mu.RUnlock()
-	if err := s.refreshCache(ctx); err != nil {
-		return false, err
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	// Empty DB → seeding scenario: allow any non-empty slug.
-	if len(s.cache) == 0 {
-		return true, nil
-	}
-	_, ok := s.cache[slug]
-	return ok, nil
-}
-
-// Invalidate drops the in-memory cache so the next lookup rebuilds it.
-// Called after any create/update/delete on categories.
-func (s *CategoryService) Invalidate() {
-	s.mu.Lock()
-	s.cache = nil
-	s.mu.Unlock()
-}
-
-// List returns all categories.
-func (s *CategoryService) List(ctx context.Context) ([]models.CategoryDoc, error) {
-	return s.repo.List(ctx)
+// List returns a branch's categories in display order.
+func (s *CategoryService) List(ctx context.Context, branchID primitive.ObjectID) ([]models.Category, error) {
+	return s.repo.List(ctx, branchID)
 }
 
 // Get returns a single category by id.
-func (s *CategoryService) Get(ctx context.Context, id string) (models.CategoryDoc, error) {
+func (s *CategoryService) Get(ctx context.Context, id string) (models.Category, error) {
 	cat, err := s.repo.Get(ctx, id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return models.CategoryDoc{}, ErrNotFound
-		}
-		return models.CategoryDoc{}, err
-	}
-	return cat, nil
+	return cat, notFound(err)
 }
 
-// Create validates and inserts a new category.
-func (s *CategoryService) Create(ctx context.Context, in models.CategoryInput) (models.CategoryDoc, error) {
+// Exists reports whether the branch has a category with this slug.
+func (s *CategoryService) Exists(ctx context.Context, branchID primitive.ObjectID, slug string) (bool, error) {
+	_, err := s.repo.FindBySlug(ctx, branchID, slug)
+	if errors.Is(err, repository.ErrNotFound) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// Create validates and inserts a new category in a branch.
+func (s *CategoryService) Create(ctx context.Context, branchID primitive.ObjectID, in models.CategoryInput) (models.Category, error) {
 	if err := validation.ValidateCategoryInput(in, true); err != nil {
-		return models.CategoryDoc{}, err
+		return models.Category{}, err
 	}
-	// Unique slug check: FindBySlug returns ErrNotFound when the slug is free.
-	if _, err := s.repo.FindBySlug(ctx, strings.TrimSpace(*in.Slug)); err == nil {
-		return models.CategoryDoc{}, validation.NewFieldError("slug", "a category with this slug already exists")
-	} else if !errors.Is(err, repository.ErrNotFound) {
-		return models.CategoryDoc{}, err
-	}
-	cat := models.CategoryDoc{
-		Slug:     strings.TrimSpace(*in.Slug),
-		Title:    strings.TrimSpace(*in.Title),
-		IsActive: derefBool(in.IsActive, true),
-	}
-	if in.Order != nil {
-		cat.Order = *in.Order
+	cat := models.Category{
+		BranchID: branchID,
+		Slug:     trimmed(in.Slug),
+		Title:    trimmed(in.Title),
+		Order:    intOr(in.Order, 0),
+		IsActive: boolOr(in.IsActive, true),
 	}
 	if err := s.repo.Create(ctx, &cat); err != nil {
-		// Mongo duplicate-key → friendly message.
-		if isDupKeyErr(err) {
-			return models.CategoryDoc{}, validation.NewFieldError("slug", "a category with this slug already exists")
+		if mongo.IsDuplicateKeyError(err) {
+			return models.Category{}, errDuplicateCategory
 		}
-		return models.CategoryDoc{}, err
+		return models.Category{}, err
 	}
-	s.Invalidate()
 	return cat, nil
 }
 
-// Update applies a partial update to an existing category.
-func (s *CategoryService) Update(ctx context.Context, id string, in models.CategoryInput) (models.CategoryDoc, error) {
+// Update applies a partial update to a category. Menu items reference
+// categories by slug, so renaming a slug detaches its items (the admin panel
+// warns about this).
+func (s *CategoryService) Update(ctx context.Context, id string, in models.CategoryInput) (models.Category, error) {
 	if err := validation.ValidateCategoryInput(in, false); err != nil {
-		return models.CategoryDoc{}, err
-	}
-	existing, err := s.repo.Get(ctx, id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return models.CategoryDoc{}, ErrNotFound
-		}
-		return models.CategoryDoc{}, err
+		return models.Category{}, err
 	}
 	set := bson.M{}
 	if in.Slug != nil {
-		newSlug := strings.TrimSpace(*in.Slug)
-		if newSlug != existing.Slug {
-			if other, err := s.repo.FindBySlug(ctx, newSlug); err == nil && other.ID != existing.ID {
-				return models.CategoryDoc{}, validation.NewFieldError("slug", "a category with this slug already exists")
-			}
-		}
-		set["slug"] = newSlug
+		set["slug"] = trimmed(in.Slug)
 	}
 	if in.Title != nil {
-		set["title"] = strings.TrimSpace(*in.Title)
+		set["title"] = trimmed(in.Title)
 	}
 	if in.Order != nil {
 		set["order"] = *in.Order
@@ -161,68 +86,51 @@ func (s *CategoryService) Update(ctx context.Context, id string, in models.Categ
 	if in.IsActive != nil {
 		set["is_active"] = *in.IsActive
 	}
-	if len(set) > 0 {
-		if err := s.repo.Update(ctx, id, bson.M{"$set": set}); err != nil {
-			if isDupKeyErr(err) {
-				return models.CategoryDoc{}, validation.NewFieldError("slug", "a category with this slug already exists")
-			}
-			if errors.Is(err, repository.ErrNotFound) {
-				return models.CategoryDoc{}, ErrNotFound
-			}
-			return models.CategoryDoc{}, err
+	if err := s.repo.Update(ctx, id, set); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return models.Category{}, errDuplicateCategory
 		}
+		return models.Category{}, notFound(err)
 	}
-	s.Invalidate()
-	return s.repo.Get(ctx, id)
+	return s.Get(ctx, id)
 }
 
-// Delete removes a category. Menu items referencing it are left untouched
-// (they keep their category string); the admin UI can re-assign them.
+// Delete removes a category. Its items stay in the database but are no
+// longer shown until they are moved to another category.
 func (s *CategoryService) Delete(ctx context.Context, id string) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrNotFound
-		}
+	return notFound(s.repo.Delete(ctx, id))
+}
+
+// SeedIfEmpty inserts the given categories when the branch has none.
+func (s *CategoryService) SeedIfEmpty(ctx context.Context, branchID primitive.ObjectID, cats []models.Category) error {
+	n, err := s.repo.Count(ctx, branchID)
+	if err != nil || n > 0 {
 		return err
 	}
-	s.Invalidate()
-	return nil
+	return s.repo.InsertMany(ctx, withBranch(cats, branchID))
 }
 
-// SeedIfEmpty inserts the default categories when none exist.
-func (s *CategoryService) SeedIfEmpty(ctx context.Context, cats []models.CategoryDoc) error {
-	n, err := s.repo.Count(ctx)
+// copyBranch copies every category of one branch into another.
+func (s *CategoryService) copyBranch(ctx context.Context, from, to primitive.ObjectID) error {
+	cats, err := s.repo.List(ctx, from)
 	if err != nil {
 		return err
 	}
-	if n > 0 {
-		return nil
-	}
-	if err := s.repo.InsertMany(ctx, cats); err != nil {
-		return err
-	}
-	s.Invalidate()
-	return nil
+	return s.repo.InsertMany(ctx, withBranch(cats, to))
 }
 
-// isDupKeyErr reports whether err is a MongoDB duplicate-key error (E11000).
-func isDupKeyErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	// Match on the driver's error message; avoids importing mongo.WriteException
-	// type here. The E11000 duplicate key message is stable across versions.
-	return containsAny(err.Error(), "E11000", "duplicate key")
+// deleteBranch removes every category of a branch.
+func (s *CategoryService) deleteBranch(ctx context.Context, branchID primitive.ObjectID) error {
+	return s.repo.DeleteByBranch(ctx, branchID)
 }
 
-func containsAny(s string, subs ...string) bool {
-	for _, sub := range subs {
-		if sub == "" {
-			continue
-		}
-		if idx := strings.Index(s, sub); idx >= 0 {
-			return true
+// withBranch returns fresh copies of cats that belong to branchID.
+func withBranch(cats []models.Category, branchID primitive.ObjectID) []models.Category {
+	out := make([]models.Category, len(cats))
+	for i, c := range cats {
+		out[i] = models.Category{
+			BranchID: branchID, Slug: c.Slug, Title: c.Title, Order: c.Order, IsActive: c.IsActive,
 		}
 	}
-	return false
+	return out
 }
