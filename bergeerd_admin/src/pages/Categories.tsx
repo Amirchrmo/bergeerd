@@ -207,6 +207,9 @@ function CategoryForm({
             value={form.slug || ""}
             onChange={(e) => set("slug", e.target.value)}
             required
+            maxLength={60}
+            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            title="حروف کوچک انگلیسی، عدد و خط تیره"
             dir="ltr"
             className={inputCls(fieldErrors.slug)}
             placeholder="burgers"

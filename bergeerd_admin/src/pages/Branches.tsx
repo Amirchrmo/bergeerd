@@ -254,6 +254,10 @@ function BranchForm({
               value={form.slug || ""}
               onChange={(e) => set("slug", e.target.value.toLowerCase())}
               required
+              minLength={2}
+              maxLength={40}
+              pattern="(?!(admin|api|assets|health|bergeerd-minio|default)$)[a-z0-9]+(-[a-z0-9]+)*"
+              title="حروف کوچک انگلیسی، عدد و خط تیره (نام‌های admin، api، assets، health و default رزرو هستند)"
               dir="ltr"
               className={inputCls(fieldErrors.slug)}
               placeholder="tehran"

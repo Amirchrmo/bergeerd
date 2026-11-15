@@ -67,22 +67,37 @@ async function request<T>(
     return null as T;
   }
 
+  if (!res.ok) {
+    // The CDN in front of bergeerd.ir replaces 4xx bodies with its own HTML
+    // page, so the API's JSON error (and field errors) may not arrive.
+    let body: ApiError | null = null;
+    try {
+      body = JSON.parse(await res.text());
+    } catch {
+      body = null;
+    }
+    if (res.status === 401 && auth) {
+      // Expired session: AuthProvider listens for "storage" and shows the login page.
+      clearToken();
+      window.dispatchEvent(new Event("storage"));
+    }
+    const message = body?.error || STATUS_MESSAGES[res.status] || `خطای سرور (${res.status})`;
+    throw new HttpError(res.status, body, message);
+  }
+
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-
-  if (res.status === 401 && auth) {
-    // Expired session: AuthProvider listens for "storage" and shows the login page.
-    clearToken();
-    window.dispatchEvent(new Event("storage"));
-  }
-  if (!res.ok) {
-    const message = data?.error || `Request failed with status ${res.status}`;
-    throw new HttpError(res.status, data ?? null, message);
-  }
-
   // The backend wraps payloads in { "data": ... }.
   return (data?.data ?? data) as T;
 }
+
+const STATUS_MESSAGES: Record<number, string> = {
+  400: "اطلاعات واردشده معتبر نیست؛ فیلدها را بررسی کنید (مثلاً شناسهٔ تکراری).",
+  401: "نشست شما تمام شده؛ دوباره وارد شوید.",
+  404: "مورد درخواستی پیدا نشد.",
+  409: "این عملیات مجاز نیست.",
+  413: "فایل بیش از حد بزرگ است.",
+};
 
 // ----- Auth -----
 const json = (method: string, body: unknown): RequestInit => ({
