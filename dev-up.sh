@@ -118,6 +118,7 @@ cat <<EOF
    • Go API       → http://localhost:8080        (.dev-logs/api.log)
    • Admin Panel  → http://localhost:5173        (.dev-logs/admin.log)
    • Website      → http://localhost:3000        (.dev-logs/menu.log)
+                    other branches at http://localhost:3000/<slug>
 
    Admin login:  admin / admin123
 

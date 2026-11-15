@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: bergeerd-api:latest
+    container_name: bergeerd-api
+    restart: unless-stopped
+    env_file:
+      - ./api.env
+    environment:
+      SEED_IMAGES_DIR: /seed-images
+    volumes:
+      - ./seed-images:/seed-images:ro
+    mem_limit: 128m
+    networks:
+      - data-net
+      - bergeerd_internal
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: bergeerd-nginx
+    restart: unless-stopped
+    depends_on:
+      - api
+    expose:
+      - "80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    mem_limit: 64m
+    networks:
+      - proxy-net
+      - data-net
+      - bergeerd_internal
+
+# proxy-net and data-net are created by /opt/infra (edge, mongo, minio).
+networks:
+  proxy-net:
+    external: true
+  data-net:
+    external: true
+  bergeerd_internal:
+    driver: bridge
